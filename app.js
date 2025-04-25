@@ -25,7 +25,6 @@ cloudinary.config({
 });
 
 
-app.use('/api/admin/jobs', adminRoutes);
 
 
 app.use('/api/admin', adminRoutes);
