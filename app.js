@@ -8,6 +8,7 @@ const { sequelize } = require('./config/sequelize');
 const adminRoutes = require('./routes/adminRoutes');
 const authRoutes = require('./routes/authRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const applicationRoutes = require('./routes/userRoutes')
 // const createJob = require('./routes/adminRoutes')
 
 const app = express();
@@ -28,6 +29,7 @@ cloudinary.config({
 
 
 app.use('/api/admin', adminRoutes);
+app.use('/api/user/', applicationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.get('/', (req, res) => {
