@@ -26,8 +26,6 @@ cloudinary.config({
 });
 
 
-
-
 app.use('/api/admin', adminRoutes);
 app.use('/api/user/', applicationRoutes);
 app.use('/api/auth', authRoutes);
