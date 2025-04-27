@@ -1,4 +1,4 @@
-const { Job, User, Application, } = require('./../models');
+const { Job, User, Application, Document} = require('./../models');
 const asyncErrorHandler = require('./../utils/asyncErrorHandler');
 const CustomError = require('./../utils/customError');
 
@@ -132,8 +132,14 @@ exports.getJobApplications = asyncErrorHandler(async (req, res, next) => {
       include: [
         {
             model: User,
-            attributes: ['user_id', 'username', 'email']
+            attributes: ['user_id', 'username', 'email'],
+            include: [
+                {
+                    model: Document,
+                    attributes: ['file_url', 'file_name']
+            }]
         }],
+      
       order: [['createdAt', 'DESC']]
   });
 
@@ -145,3 +151,43 @@ exports.getJobApplications = asyncErrorHandler(async (req, res, next) => {
       applications
   });
 });
+
+
+
+
+exports.updateApplicationStatus = asyncErrorHandler(async (req, res, next) => {
+    const { applicationId } = req.params;
+    const { status } = req.body;
+  
+    // Validate the status input
+    if (!status || !['accepted', 'rejected'].includes(status.toLowerCase())) {
+      return next(new CustomError('Status must be either "accepted" or "rejected"', 400));
+    }
+  
+    // Step 1: Find the application
+    const application = await Application.findOne({
+      where: { id: applicationId },
+      include: [{
+        model: Job,
+        where: { user_id: req.user.user_id } // Ensure the job belongs to the current admin
+      }]
+    });
+  
+    if (!application) {
+      return next(new CustomError('Application not found or you are not authorized to update it', 404));
+    }
+  
+    // Step 2: Update the application status
+    await application.update({ status: status.toLowerCase() });
+  
+    res.status(200).json({
+      status: 'success',
+      message: 'Application status updated successfully',
+      application: {
+        id: application.id,
+        status: application.status,
+        job_id: application.job_id,
+        user_id: application.user_id
+      }
+    });
+  });

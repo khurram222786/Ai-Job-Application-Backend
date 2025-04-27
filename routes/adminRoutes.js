@@ -14,4 +14,12 @@ router.route('/jobs/:id')
 
 router.get('/jobs/:jobId/applications', protect, authorize('admin'), adminController.getJobApplications);
 
+router.patch(
+      '/applications/:applicationId/status',
+      protect, authorize('admin'),
+      adminController.updateApplicationStatus
+    );
+
+
+
 module.exports = router;
