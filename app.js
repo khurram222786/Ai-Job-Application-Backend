@@ -1,6 +1,3 @@
-// const db = require('./models');
-
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -9,7 +6,6 @@ const adminRoutes = require('./routes/adminRoutes');
 const authRoutes = require('./routes/authRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const applicationRoutes = require('./routes/userRoutes')
-// const createJob = require('./routes/adminRoutes')
 
 const app = express();
 

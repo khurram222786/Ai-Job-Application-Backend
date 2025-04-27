@@ -1,15 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const adminController = require('./../controllers/adminController');
+const { protect, authorize } = require('./../middleware/authMiddleware');
 
-const { protect, authorize } = require('../middleware/authMiddleware');
-const { createJob,getMyJobs ,updateJobById,deleteJobById} = require('../controllers/adminController');
+router.route('/jobs')
+      .post(protect, authorize('admin'), adminController.createJob)
+      .get(protect, adminController.getMyJobs);
 
-
-router.post('/jobs', protect, authorize('admin'), createJob);
-router.get('/jobs',protect , getMyJobs);
-router.put('/jobs/:id', protect, authorize('admin'), updateJobById);
-router.delete('/jobs/:id', protect, authorize('admin'), deleteJobById);
-
-
+router.route('/jobs/:id')
+      .put(protect, authorize('admin'), adminController.updateJobById)
+      .delete(protect, authorize('admin'), adminController.deleteJobById);
 
 module.exports = router;

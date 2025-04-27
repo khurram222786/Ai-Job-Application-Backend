@@ -1,120 +1,102 @@
-const { Job,User } = require('../models'); 
+const { Job, User } = require('./../models');
+const asyncErrorHandler = require('./../utils/asyncErrorHandler');
+const CustomError = require('./../utils/customError');
 
-const createJob = async (req, res, next) => {
-  try {
+exports.createJob = asyncErrorHandler(async (req, res, next) => {
     const { title, description, requirements } = req.body;
 
     if (!title || !description || !requirements) {
-      return res.status(400).json({ message: 'All job fields are required' });
+        return next(new CustomError('All job fields are required', 400));
     }
 
     const newJob = await Job.create({
-      user_id: req.user.user_id,
-      title,
-      description,
-      requirements
+        user_id: req.user.user_id,
+        title,
+        description,
+        requirements
     });
 
     res.status(201).json({
-      message: 'Job created successfully',
-      job: newJob
+        status: 'success',
+        message: 'Job created successfully',
+        job: newJob
     });
-  } catch (err) {
-    console.error('Job creation error:', err);
-    next(err);
-  }
-};
+});
 
-const getMyJobs = async (req, res) => {
-  try {
+exports.getMyJobs = asyncErrorHandler(async (req, res, next) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 5;
     const offset = (page - 1) * limit;
 
     const user = await User.findByPk(req.user.user_id);
 
-    let count, jobs;
-    // here 2 is the user type & 1 is the admin type
-    if (user.user_type_id == 2) {
-      ({ count, rows: jobs } = await Job.findAndCountAll({
-        limit,
-        offset,
-        order: [['createdAt', 'DESC']],
-      }));
-    } else {
-      ({ count, rows: jobs } = await Job.findAndCountAll({
-        where: { user_id: req.user.user_id },
-        limit,
-        offset,
-        order: [['createdAt', 'DESC']],
-      }));
+    if (!user) {
+        return next(new CustomError('User not found', 404));
     }
 
+    let queryOptions = {
+        limit,
+        offset,
+        order: [['createdAt', 'DESC']]
+    };
+
+    if (user.user_type_id !== 2) {
+        queryOptions.where = { user_id: req.user.user_id };
+    }
+
+    const { count, rows: jobs } = await Job.findAndCountAll(queryOptions);
+
     res.status(200).json({
-      currentPage: page,
-      totalPages: Math.ceil(count / limit),
-      totalJobs: count,
-      jobs,
+        status: 'success',
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalJobs: count,
+        jobs
     });
-  } catch (err) {
-    console.error('Error fetching jobs:', err);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+});
 
-
-
-const updateJobById = async (req, res, next) => {
-  try {
+exports.updateJobById = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
     const { title, description, requirements } = req.body;
 
     const job = await Job.findByPk(id);
 
     if (!job) {
-      return res.status(404).json({ message: 'Job not found' });
+        return next(new CustomError('Job not found', 404));
     }
 
     await job.update({
-      title: title ?? job.title,
-      description: description ?? job.description,
-      requirements: requirements ?? job.requirements,
+        title: title ?? job.title,
+        description: description ?? job.description,
+        requirements: requirements ?? job.requirements
     });
 
     res.status(200).json({
-      message: 'Job updated successfully',
-      job: {
-        job_id: job.job_id,
-        title: job.title,
-        description: job.description,
-        requirements: job.requirements,
-        updatedAt: job.updatedAt,
-      }
+        status: 'success',
+        message: 'Job updated successfully',
+        job: {
+            job_id: job.job_id,
+            title: job.title,
+            description: job.description,
+            requirements: job.requirements,
+            updatedAt: job.updatedAt
+        }
     });
-  } catch (err) {
-    console.error('Update job error:', err);
-    next(err);
-  }
-};
+});
 
-const deleteJobById = async (req, res, next) => {
-  try {
+exports.deleteJobById = asyncErrorHandler(async (req, res, next) => {
     const { id } = req.params;
 
     const job = await Job.findByPk(id);
 
     if (!job) {
-      return res.status(404).json({ message: 'Job not found' });
+        return next(new CustomError('Job not found', 404));
     }
 
     await job.destroy();
 
-    res.status(200).json({ message: 'Job deleted successfully' });
-  } catch (err) {
-    console.error('Delete job error:', err);
-    next(err);
-  }
-};
-
-
-module.exports = { createJob ,getMyJobs,updateJobById,deleteJobById};
+    res.status(200).json({
+        status: 'success',
+        message: 'Job deleted successfully'
+    });
+});
