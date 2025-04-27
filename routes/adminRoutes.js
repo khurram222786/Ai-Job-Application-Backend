@@ -20,6 +20,19 @@ router.patch(
       adminController.updateApplicationStatus
     );
 
+router.get(
+      '/applications/accepted',
+      protect, 
+      authorize('admin'),
+      adminController.getAcceptedApplications
+    );
 
+
+router.post(
+      '/users/:userId/interviews',
+      protect,
+      authorize('admin'),
+      adminController.scheduleUserInterview
+    );
 
 module.exports = router;
