@@ -1,4 +1,4 @@
-const { Job, User } = require('./../models');
+const { Job, User, Application, } = require('./../models');
 const asyncErrorHandler = require('./../utils/asyncErrorHandler');
 const CustomError = require('./../utils/customError');
 
@@ -99,4 +99,49 @@ exports.deleteJobById = asyncErrorHandler(async (req, res, next) => {
         status: 'success',
         message: 'Job deleted successfully'
     });
+});
+
+
+
+
+
+
+
+
+
+// In adminController.js
+
+exports.getJobApplications = asyncErrorHandler(async (req, res, next) => {
+  const { jobId } = req.params;
+
+  // Step 1: Check if job exists and belongs to current admin
+  const job = await Job.findOne({
+      where: {
+          id: jobId,
+          user_id: req.user.user_id
+      }
+  });
+
+  if (!job) {
+      return next(new CustomError('Job not found or you are not authorized to view its applications', 404));
+  }
+
+  // Step 2: Find all applications for this job
+  const applications = await Application.findAndCountAll({
+      where: { job_id: jobId },   
+      include: [
+        {
+            model: User,
+            attributes: ['user_id', 'username', 'email']
+        }],
+      order: [['createdAt', 'DESC']]
+  });
+
+  
+
+  res.status(200).json({
+      status: 'success',
+      totalApplications: applications.length,
+      applications
+  });
 });

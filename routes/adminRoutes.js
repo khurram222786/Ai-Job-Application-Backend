@@ -11,4 +11,7 @@ router.route('/jobs/:id')
       .put(protect, authorize('admin'), adminController.updateJobById)
       .delete(protect, authorize('admin'), adminController.deleteJobById);
 
+
+router.get('/jobs/:jobId/applications', protect, authorize('admin'), adminController.getJobApplications);
+
 module.exports = router;
