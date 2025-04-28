@@ -1,29 +1,25 @@
 const { Document } = require('../models');
+const asyncErrorHandler = require('../Utils/asyncErrorHandler');
+const CustomError = require('../Utils/customError');
 
-const uploadPDF = async (req, res, next) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
-
-    const { user_id } = req.user;
-    const fileUrl = req.file.path;
-    const fileName = req.file.originalname;
-
-    const document = await Document.create({
-      user_id,
-      file_url: fileUrl,
-      file_name: fileName
-    });
-
-    res.status(201).json({
-      message: 'Document uploaded successfully',
-      document
-    });
-  } catch (err) {
-    console.error('PDF upload error:', err);
-    next(err);
+exports.uploadPDF = asyncErrorHandler(async (req, res, next) => {
+  if (!req.file) {
+    return next(new CustomError('No file uploaded', 400));
   }
-};
 
-module.exports = { uploadPDF };
+  const { user_id } = req.user; // ✅ Fix here
+  const fileUrl = req.file.path;
+  const fileName = req.file.originalname;
+
+  const document = await Document.create({
+    user_id,
+    file_url: fileUrl,
+    file_name: fileName
+  });
+
+  res.status(201).json({
+    status: 'success',
+    message: 'Document uploaded successfully',
+    document
+  });
+});
