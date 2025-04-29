@@ -62,5 +62,18 @@ module.exports = {
       ],
       order: [['createdAt', 'DESC']],
     });
+  },
+  async findJobById(jobId) {
+    return await Job.findByPk(jobId);
+  },
+
+  async findUserApplication(userId, jobId) {
+    return await Application.findOne({
+      where: { user_id: userId, job_id: jobId }
+    });
+  },
+
+  async createApplication(applicationData) {
+    return await Application.create(applicationData);
   }
 };

@@ -1,55 +1,48 @@
-const { Application, Job, Interview } = require('../models');
+const applicationRepository = require('../repositories/applicationRepository');
+const interviewRepository = require('../repositories/interviewRepository');
 const asyncErrorHandler = require('../Utils/asyncErrorHandler');
 const CustomError = require('../Utils/customError');
-
-
 
 exports.applyForJob = asyncErrorHandler(async (req, res, next) => {
   const { jobId } = req.params;
   const userId = req.user.user_id;
 
-  const job = await Job.findByPk(jobId);
+  // Check if job exists
+  const job = await applicationRepository.findJobById(jobId);
   if (!job) {
     return next(new CustomError('Job not found', 404));
   }
 
-  const existingApplication = await Application.findOne({
-    where: { user_id: userId, job_id: jobId }
-  });
-
+  // Check for existing application
+  const existingApplication = await applicationRepository.findUserApplication(userId, jobId);
   if (existingApplication) {
     return next(new CustomError('You have already applied for this job', 400));
   }
 
-  const newApplication = await Application.create({
+  // Create new application
+  const newApplication = await applicationRepository.createApplication({
     user_id: userId,
     job_id: jobId,
     status: 'pending'
   });
 
-  res.status(201).json({
-    status: 'success',
-    message: 'Application submitted successfully',
-    application: newApplication
-  });
+  res.success(
+    { application: newApplication },
+    'Application submitted successfully',
+    201
+  );
 });
 
 exports.getUserInterviews = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.user_id;
 
-  const interviews = await Interview.findAll({
-    where: { user_id: userId },
-    attributes: ['id', 'start_time', 'end_time', 'interview_date', 'user_id'],
-    order: [['interview_date', 'ASC']]
-  });
-
+  const interviews = await interviewRepository.getUserInterviews(userId);
   if (!interviews.length) {
     return next(new CustomError('No interviews scheduled yet', 404));
   }
 
-  res.status(200).json({
-    status: 'success',
-    count: interviews.length,
-    interviews
-  });
+  res.success(
+    interviews,
+    "All schedulled interviews"
+  );
 });

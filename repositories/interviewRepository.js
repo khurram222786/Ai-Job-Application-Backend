@@ -29,5 +29,12 @@ module.exports = {
         { model: Application, attributes: ['id', 'status'] }
       ]
     });
+  },
+  async getUserInterviews(userId) {
+    return await Interview.findAll({
+      where: { user_id: userId },
+      attributes: ['id', 'start_time', 'end_time', 'interview_date', 'user_id'],
+      order: [['interview_date', 'ASC']]
+    });
   }
 };
