@@ -13,6 +13,7 @@ module.exports = {
   async findApplicationsForJob(jobId) {
     return await Application.findAndCountAll({
       where: { job_id: jobId },
+      attributes: ['id','status'],
       include: [
         {
           model: User,
@@ -43,5 +44,23 @@ module.exports = {
 
   async updateApplicationStatus(application, status) {
     return await application.update({ status: status.toLowerCase() });
+  },
+
+  async findApplicationsByStatusAndJobOwner(status, userId) {
+    return await Application.findAll({
+      where: { status },
+      include: [
+        {
+          model: Job,
+          where: { user_id: userId },
+          attributes: [],
+        },
+        {
+          model: User,
+          attributes: ['user_id', 'username', 'email'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
   }
 };

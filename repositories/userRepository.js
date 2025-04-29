@@ -1,4 +1,4 @@
-const { User, UserType } = require('../models');
+const { User,Application  ,UserType } = require('../models');
 
 module.exports = {
   async findUserByEmail(email) {
@@ -9,6 +9,16 @@ module.exports = {
         as: 'UserType',
         attributes: ['role']
       }
+    });
+  },
+  async findUserWithApplications(userId, applicationId) {
+    return await User.findOne({
+      where: { user_id: userId },
+      include: [{
+        model: Application,
+        where: { id: applicationId },
+        required: false
+      }]
     });
   },
 
