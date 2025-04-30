@@ -1,14 +1,18 @@
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+const configureCloudinary = () => {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+
+  return cloudinary;
+};
 
 const storage = new CloudinaryStorage({
-  cloudinary,
+  cloudinary: configureCloudinary(),
   params: (req, file) => ({
     folder: 'job-portal/resumes',
     allowed_formats: ['pdf', 'doc', 'docx'],
@@ -17,4 +21,4 @@ const storage = new CloudinaryStorage({
   })
 });
 
-module.exports = { cloudinary, storage };
+module.exports = { configureCloudinary, storage };

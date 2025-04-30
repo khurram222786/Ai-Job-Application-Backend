@@ -1,32 +1,32 @@
-const { Application, Job, User, Document } = require('../models');
+const { Application, Job, User, Document } = require("../models");
 
 module.exports = {
   async findJobWithOwner(jobId, userId) {
     return await Job.findOne({
       where: {
         id: jobId,
-        user_id: userId
-      }
+        user_id: userId,
+      },
     });
   },
 
   async findApplicationsForJob(jobId) {
     return await Application.findAndCountAll({
       where: { job_id: jobId },
-      attributes: ['id','status'],
+      attributes: ["id", "status"],
       include: [
         {
           model: User,
-          attributes: ['user_id', 'username', 'email'],
+          attributes: ["user_id", "username", "email"],
           include: [
             {
               model: Document,
-              attributes: ['file_url', 'file_name']
-            }
-          ]
-        }
+              attributes: ["file_url", "file_name"],
+            },
+          ],
+        },
       ],
-      order: [['createdAt', 'DESC']]
+      order: [["createdAt", "DESC"]],
     });
   },
 
@@ -36,9 +36,9 @@ module.exports = {
       include: [
         {
           model: Job,
-          where: { user_id: userId }
-        }
-      ]
+          where: { user_id: userId },
+        },
+      ],
     });
   },
 
@@ -57,10 +57,10 @@ module.exports = {
         },
         {
           model: User,
-          attributes: ['user_id', 'username', 'email'],
+          attributes: ["user_id", "username", "email"],
         },
       ],
-      order: [['createdAt', 'DESC']],
+      order: [["createdAt", "DESC"]],
     });
   },
   async findJobById(jobId) {
@@ -69,11 +69,11 @@ module.exports = {
 
   async findUserApplication(userId, jobId) {
     return await Application.findOne({
-      where: { user_id: userId, job_id: jobId }
+      where: { user_id: userId, job_id: jobId },
     });
   },
 
   async createApplication(applicationData) {
     return await Application.create(applicationData);
-  }
+  },
 };

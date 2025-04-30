@@ -1,5 +1,5 @@
-const { Job, User, Application, Document, Interview } = require('../models');
-const { Op } = require('sequelize');
+const { Job, User, Application, Document, Interview } = require("../models");
+const { Op } = require("sequelize");
 
 module.exports = {
   async createJob(jobData) {
@@ -24,5 +24,5 @@ module.exports = {
 
   async findUserById(userId) {
     return await User.findByPk(userId);
-  }
+  },
 };

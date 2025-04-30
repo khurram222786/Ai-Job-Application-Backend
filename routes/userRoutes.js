@@ -1,30 +1,30 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { protect, authorize } = require('../middleware/authMiddleware');
-const applicationController = require('../controllers/applicationController');
-const responseHandler = require('../middleware/responseHandler');
-const interviewConversationController = require('../controllers/interviewController');
+const { protect, authorize } = require("../middleware/authMiddleware");
+const applicationController = require("../controllers/applicationController");
+const responseHandler = require("../middleware/responseHandler");
+const interviewConversationController = require("../controllers/interviewController");
+const validateConversation = require("../middleware/interviewConversationValidator");
 
-// Apply response middleware to all user routes
-
-router.use(responseHandler);
+router.use(responseHandler);  // for setting the proper response
 
 router.post(
-  '/applications/:jobId',
+  "/applications/:jobId",
   protect,
-  authorize('user'),
+  authorize("user"),
   applicationController.applyForJob
 );
 
 router.get(
-  '/interviews/my-interviews',
+  "/interviews/my-interviews",
   protect,
   applicationController.getUserInterviews
 );
 
 router.post(
-  '/:interviewId/conversation',
+  "/:interviewId/conversation",
   protect,
+  validateConversation,
   interviewConversationController.saveInterviewConversation
 );
 

@@ -1,5 +1,5 @@
-const { Interview, User, Application } = require('../models');
-const { Op } = require('sequelize');
+const { Interview, User, Application } = require("../models");
+const { Op } = require("sequelize");
 
 module.exports = {
   async findConflictingInterview(userId, interviewDate, startTime, endTime) {
@@ -10,31 +10,33 @@ module.exports = {
         [Op.or]: [
           {
             start_time: { [Op.lt]: endTime },
-            end_time: { [Op.gt]: startTime }
-          }
-        ]
-      }
+            end_time: { [Op.gt]: startTime },
+          },
+        ],
+      },
     });
+  },
+  async findInterviewById(id) {
+    return await Interview.findByPk(id);
   },
 
   async createInterview(interviewData) {
     return await Interview.create(interviewData);
   },
-  
 
   async getInterviewDetails(interviewId) {
     return await Interview.findByPk(interviewId, {
       include: [
-        { model: User, attributes: ['user_id', 'username', 'email'] },
-        { model: Application, attributes: ['id', 'status'] }
-      ]
+        { model: User, attributes: ["user_id", "username", "email"] },
+        { model: Application, attributes: ["id", "status"] },
+      ],
     });
   },
   async getUserInterviews(userId) {
     return await Interview.findAll({
       where: { user_id: userId },
-      attributes: ['id', 'start_time', 'end_time', 'interview_date', 'user_id'],
-      order: [['interview_date', 'ASC']]
+      attributes: ["id", "start_time", "end_time", "interview_date", "user_id"],
+      order: [["interview_date", "ASC"]],
     });
-  }
+  },
 };
