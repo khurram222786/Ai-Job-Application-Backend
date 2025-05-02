@@ -10,21 +10,26 @@ const { APPLICATION_STATUS } = require('../constants/index');
 
 
 exports.createJob = asyncErrorHandler(async (req, res, next) => {
-  const { title, description, requirements } = req.body;
+  const { title, description, requirements, skills } = req.body;
 
   if (!title || !description || !requirements) {
-    return next(new CustomError("All job fields are required", 400));
+    return next(new CustomError("Title, description and requirements are required", 400));
   }
+
+  if (skills && !Array.isArray(skills)) {
+    return next(new CustomError("Skills must be an array of strings", 400));
+  }
+
   const newJob = await jobRepository.createJob({
     user_id: req.user.user_id,
     title,
     description,
     requirements,
+    skills: skills || [] 
   });
 
-  res.success( newJob , "Job created successfully", 201);
+  res.success(newJob, "Job created successfully", 201);
 });
-
 
 
 
@@ -96,16 +101,13 @@ exports.updateJobById = asyncErrorHandler(async (req, res, next) => {
 exports.deleteJobById = asyncErrorHandler(async (req, res, next) => {
   const { id } = req.params;
 
-  // Find job
   const job = await jobRepository.findJobById(id);
   if (!job) {
     return next(new CustomError("Job not found", 404));
   }
 
-  // Delete job
   await jobRepository.deleteJob(job);
 
-  // Send response
   res.success(null, "Job deleted successfully");
 });
 

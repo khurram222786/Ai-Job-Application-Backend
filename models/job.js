@@ -3,7 +3,11 @@ module.exports = (sequelize, DataTypes) => {
     title: DataTypes.STRING,
     description: DataTypes.TEXT,
     requirements: DataTypes.TEXT,
-    user_id: DataTypes.INTEGER
+    user_id: DataTypes.INTEGER,
+    skills: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
+    }
   }, {});
 
   Job.associate = function(models) {
