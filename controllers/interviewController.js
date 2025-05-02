@@ -12,6 +12,9 @@ exports.saveInterviewConversation = asyncErrorHandler(
     if (!interview) {
       return next(new CustomError("Interview not found", 404));
     }
+    else if(interview.user_id!==req.user.user_id){  
+      return next(new CustomError("This user does not have a scheduled interview", 404));
+    }
 
     const existingConversation =
       await interviewConversationRepository.findConversationByInterviewId(
@@ -30,12 +33,9 @@ exports.saveInterviewConversation = asyncErrorHandler(
         conversation: conversationString,
       });
 
-    const responseData = {
-      id: newConversation.id,
-      interview_id: newConversation.interview_id,
-      conversation: JSON.parse(newConversation.conversation),
-      created_at: newConversation.created_at,
-    };
+
+    const responseData = JSON.parse(newConversation.conversation);
+
 
     res.success(responseData, "Interview conversation saved successfully", 201);
   }

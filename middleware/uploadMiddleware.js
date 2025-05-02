@@ -1,11 +1,13 @@
-const multer = require("multer");
-const { storage } = require("../config/cloudinary"); // If you use cloudinary
+// middlewares/upload.js
 
-const fileFilter = (req, file, cb) => {
+const multer = require("multer");
+const { docStorage, imageStorage } = require("../config/cloudinary");
+
+const docFileFilter = (req, file, cb) => {
   const allowedTypes = [
     "application/pdf",
     "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
@@ -14,10 +16,29 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({
-  storage, // cloudinary storage
-  fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+const imageFileFilter = (req, file, cb) => {
+  const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only image files are allowed (JPG, PNG, GIF)"), false);
+  }
+};
+
+const uploadDocs = multer({
+  storage: docStorage,
+  fileFilter: docFileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
 
-module.exports = upload;
+const uploadImages = multer({
+  storage: imageStorage,
+  fileFilter: imageFileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});
+// middlewares/upload.js
+
+module.exports = {
+  uploadDocs,
+  uploadImages
+};

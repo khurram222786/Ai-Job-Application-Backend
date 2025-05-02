@@ -4,7 +4,7 @@ const cors = require("cors");
 const { sequelize } = require("./config/sequelize");
 const bodyParser = require("body-parser");
 const setupRoutes = require("./config/routes");
-const { configureCloudinary } = require("./config/cloudinary");
+const { configureCloudinary } = require('./config/cloudinary');
 
 // Initialize Express app
 const app = express();

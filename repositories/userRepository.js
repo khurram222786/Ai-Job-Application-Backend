@@ -28,6 +28,10 @@ module.exports = {
     return await User.create(userData);
   },
 
+  async findUserbyId(id){
+    return await User.findByPk(id);
+  },
+
   async findUserTypeByRole(role) {
     return await UserType.findOne({ where: { role } });
   },
@@ -36,4 +40,36 @@ module.exports = {
     const count = await User.count({ where: { email } });
     return count > 0;
   },
+  async findUserById(userId, options = {}) {
+    return await User.findByPk(userId, {
+      ...options,
+      include: {
+        model: UserType,
+        as: "UserType",
+        attributes: ["role"],
+      },
+    });
+  },
+
+  async updateUserProfilePicture(userId, profilePictureUrl) {
+    const [affectedCount] = await User.update(
+      { profile_picture: profilePictureUrl },
+      { where: { user_id: userId } }
+    );
+    
+    if (affectedCount === 0) {
+      throw new Error("User not found or no changes made");
+    }
+    
+    return await this.findUserById(userId);
+  },
+
+  async getUserProfilePicture(userId) {
+    const user = await User.findByPk(userId, {
+      attributes: ['profile_picture']
+    });
+    return user ? user.profile_picture : null;
+  }
+  
+  
 };
