@@ -38,4 +38,12 @@ router.patch(
   userController.updateProfile
 );
 
+router.get(
+  "/profile",
+  protect,
+  userController.getUserProfile
+);
+
+
+
 module.exports = router;

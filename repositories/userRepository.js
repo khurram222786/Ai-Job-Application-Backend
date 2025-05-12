@@ -1,4 +1,4 @@
-const { User, Application, UserType } = require("../models");
+const { User, Application, UserType, Document } = require("../models");
 
 module.exports = {
   async findUserByEmail(email) {
@@ -50,6 +50,24 @@ module.exports = {
       },
     });
   },
+
+  async findUserDetailsById(userId) {
+    try {
+        const user = await User.findByPk(userId, {
+            attributes: { exclude: ['password', 'cv_url'] },
+            include: [{
+                model: Document,
+                as: 'Documents',
+                attributes: ['file_url', 'file_name']
+            }]
+        });
+        console.log('User with documents:', JSON.stringify(user, null, 2));
+        return user;
+    } catch (error) {
+        console.error('Error fetching user details:', error);
+        throw error;
+    }
+},
 
   async updateUserProfilePicture(userId, profilePictureUrl) {
     const [affectedCount] = await User.update(

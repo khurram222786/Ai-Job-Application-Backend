@@ -2,10 +2,10 @@ const setupRoutes = (app) => {
     const adminRoutes = require('../routes/adminRoutes');
     const authRoutes = require('../routes/authRoutes');
     const uploadRoutes = require('../routes/uploadRoutes');
-    const applicationRoutes = require('../routes/userRoutes');
+    const userRoutes = require('../routes/userRoutes');
   
     app.use('/api/admin', adminRoutes);
-    app.use('/api/user/', applicationRoutes);
+    app.use('/api/user/', userRoutes);
     app.use('/api/auth', authRoutes);
     app.use('/api/upload', uploadRoutes);
     

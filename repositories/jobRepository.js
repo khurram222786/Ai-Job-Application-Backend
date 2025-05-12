@@ -25,4 +25,15 @@ module.exports = {
   async findUserById(userId) {
     return await User.findByPk(userId);
   },
+  
+  async findAppliedJobIds(userId) {
+    const applications = await Application.findAll({
+      where: { user_id: userId },
+      attributes: ['job_id'],
+      raw: true
+    });
+    return applications.map(app => app.job_id);
+  }
+
+  
 };

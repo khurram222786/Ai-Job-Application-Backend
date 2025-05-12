@@ -31,8 +31,6 @@ exports.createJob = asyncErrorHandler(async (req, res, next) => {
   res.success(newJob, "Job created successfully", 201);
 });
 
-
-
 exports.getMyJobs = asyncErrorHandler(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 5;
@@ -49,9 +47,16 @@ exports.getMyJobs = asyncErrorHandler(async (req, res, next) => {
     order: [["createdAt", "DESC"]],
   };
 
-  if (user.user_type_id !== 2) {
-    //2 is admin role
+  if (user.user_type_id === 1) {
     queryOptions.where = { user_id: req.user.user_id };
+  } else {
+    const appliedJobIds = await jobRepository.findAppliedJobIds(req.user.user_id);
+    
+    if (appliedJobIds.length > 0) {
+      queryOptions.where = {
+        id: { [Op.notIn]: appliedJobIds }
+      };
+    }
   }
 
   const { count, rows: jobs } = await jobRepository.findAndCountJobs(
@@ -66,19 +71,15 @@ exports.getMyJobs = asyncErrorHandler(async (req, res, next) => {
   });
 });
 
-
-
 exports.updateJobById = asyncErrorHandler(async (req, res, next) => {
   const { id } = req.params;
   const { title, description, requirements } = req.body;
 
-  // Find job
   const job = await jobRepository.findJobById(id);
   if (!job) {
     return next(new CustomError("Job not found", 404));
   }
 
-  // Update job
   const updatedJob = await jobRepository.updateJob(job, {
     title: title ?? job.title,
     description: description ?? job.description,
@@ -110,10 +111,6 @@ exports.deleteJobById = asyncErrorHandler(async (req, res, next) => {
 
   res.success(null, "Job deleted successfully");
 });
-
-
-
-
 
 
 

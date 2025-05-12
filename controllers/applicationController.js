@@ -77,3 +77,19 @@ exports.updateProfile = asyncErrorHandler(async (req, res, next) => {
     }
   });
 });
+
+exports.getUserProfile = asyncErrorHandler(async (req, res, next) => {
+  const userId = req.user.user_id;
+
+  const user = await userRepository.findUserDetailsById(userId);
+  if (!user) {
+    return next(new CustomError("User not found", 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      ...user.toJSON()
+    }
+  });
+});
