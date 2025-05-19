@@ -19,7 +19,7 @@ const docStorage = new CloudinaryStorage({
   params: (req, file) => ({
     folder: 'job-portal/resumes',
     allowed_formats: ['pdf', 'doc', 'docx'],
-    resource_type: 'raw',
+    resource_type: 'auto',
     public_id: `${Date.now()}-${file.originalname}`
   })
 });

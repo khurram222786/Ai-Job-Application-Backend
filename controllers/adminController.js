@@ -1,13 +1,14 @@
 const { Job, User, Application, Document, Interview } = require("./../models");
 const asyncErrorHandler = require("./../utils/asyncErrorHandler");
 const CustomError = require("./../utils/customError");
-const { Op } = require("sequelize"); // Add this line
+const { Op } = require("sequelize");
 const jobRepository = require("../repositories/jobRepository");
 const interviewRepository= require('../repositories/interviewRepository')
 const userRepository=require('../repositories/userRepository')
 const applicationRepository = require('../repositories/applicationRepository');
 const { APPLICATION_STATUS } = require('../constants/index');
 
+const sendEmail = require('../Utils/mailer');
 
 exports.createJob = asyncErrorHandler(async (req, res, next) => {
   const { title, description, requirements, skills } = req.body;
@@ -203,48 +204,48 @@ exports.getAcceptedApplications = asyncErrorHandler(async (req, res, next) => {
 
 
 
-// const { validateInterviewSchedule } = require('../validators/interviewValidator');
 
 exports.scheduleUserInterview = asyncErrorHandler(async (req, res, next) => {
   const { userId } = req.params;
   const interviewData = req.body;
 
-  // Validate input
-  // const validationError = validateInterviewSchedule(interviewData);
-  // if (validationError) return next(validationError);
-
-  // Check if user exists
   const user = await userRepository.findUserWithApplications(userId, interviewData.application_id);
-  if (!user) {
-    return next(new CustomError('User not found', 404));
-  }
+  if (!user) return next(new CustomError('User not found', 404));
 
-  // Verify application belongs to user
   if (!user.Applications || user.Applications.length === 0) {
     return next(new CustomError('Application not found or does not belong to this user', 404));
   }
 
-  // Check for scheduling conflicts
   const conflict = await interviewRepository.findConflictingInterview(
     userId,
     interviewData.interview_date,
     interviewData.start_time,
     interviewData.end_time
   );
-  if (conflict) {
-    return next(new CustomError('User already has an interview scheduled during this time', 409));
-  }
+  if (conflict) return next(new CustomError('User already has an interview scheduled during this time', 409));
 
-  // Create interview
   const interview = await interviewRepository.createInterview({
     user_id: userId,
     ...interviewData,
     media_id: interviewData.media_id || null
   });
 
-  // Get full interview details
   const scheduledInterview = await interviewRepository.getInterviewDetails(interview.id);
 
-  // Send response
+  const subject = 'Your Interview is Scheduled';
+  const html = `
+    <h2>Hello ${user.name},</h2>
+    <p>Your interview has been scheduled successfully. Here are the details:</p>
+    <ul>
+      <li><strong>Date:</strong> ${interviewData.interview_date}</li>
+      <li><strong>Start Time:</strong> ${interviewData.start_time}</li>
+      <li><strong>End Time:</strong> ${interviewData.end_time}</li>
+      <li><strong>Platform:</strong> ${interviewData.platform || 'Not specified'}</li>
+    </ul>
+    <p>Good luck!</p>
+  `;
+
+  await sendEmail(user.email, subject, html);
+
   res.success(scheduledInterview, 'Interview scheduled successfully', 201);
 });

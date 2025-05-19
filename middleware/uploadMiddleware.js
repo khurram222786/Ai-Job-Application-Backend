@@ -1,7 +1,15 @@
 // middlewares/upload.js
-
 const multer = require("multer");
-const { docStorage, imageStorage } = require("../config/cloudinary");
+const path = require("path");
+const { imageStorage } = require("../config/cloudinary");
+
+const localDiskStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => {
+    const uniqueName = `${Date.now()}-${file.originalname}`;
+    cb(null, uniqueName);
+  },
+});
 
 const docFileFilter = (req, file, cb) => {
   const allowedTypes = [
@@ -9,24 +17,16 @@ const docFileFilter = (req, file, cb) => {
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only PDF, DOC, and DOCX files are allowed"), false);
-  }
+  allowedTypes.includes(file.mimetype) ? cb(null, true) : cb(new Error("Only PDF, DOC, and DOCX files are allowed"), false);
 };
 
 const imageFileFilter = (req, file, cb) => {
   const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only image files are allowed (JPG, PNG, GIF)"), false);
-  }
+  allowedTypes.includes(file.mimetype) ? cb(null, true) : cb(new Error("Only image files are allowed"), false);
 };
 
 const uploadDocs = multer({
-  storage: docStorage,
+  storage: localDiskStorage,
   fileFilter: docFileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
@@ -36,7 +36,6 @@ const uploadImages = multer({
   fileFilter: imageFileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
-// middlewares/upload.js
 
 module.exports = {
   uploadDocs,
