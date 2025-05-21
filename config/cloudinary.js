@@ -14,16 +14,6 @@ const configureCloudinary = () => {
 
 const configuredCloudinary = configureCloudinary();
 
-const docStorage = new CloudinaryStorage({
-  cloudinary: configuredCloudinary,
-  params: (req, file) => ({
-    folder: 'job-portal/resumes',
-    allowed_formats: ['pdf', 'doc', 'docx'],
-    resource_type: 'auto',
-    public_id: `${Date.now()}-${file.originalname}`
-  })
-});
-
 const imageStorage = new CloudinaryStorage({
   cloudinary: configuredCloudinary,
   params: (req, file) => ({
@@ -36,6 +26,6 @@ const imageStorage = new CloudinaryStorage({
 
 module.exports = {
   configureCloudinary,
-  docStorage,
+  cloudinary: configuredCloudinary,
   imageStorage
 };

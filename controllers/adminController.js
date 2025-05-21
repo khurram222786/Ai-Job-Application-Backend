@@ -1,6 +1,6 @@
 const { Job, User, Application, Document, Interview } = require("./../models");
-const asyncErrorHandler = require("./../utils/asyncErrorHandler");
-const CustomError = require("./../utils/customError");
+const asyncErrorHandler = require("../Utils/asyncErrorHandler");
+const CustomError = require("../Utils/customError");
 const { Op } = require("sequelize");
 const jobRepository = require("../repositories/jobRepository");
 const interviewRepository= require('../repositories/interviewRepository')
@@ -245,7 +245,7 @@ exports.scheduleUserInterview = asyncErrorHandler(async (req, res, next) => {
     <p>Good luck!</p>
   `;
 
-  await sendEmail(user.email, subject, html);
+  // await sendEmail(user.email, subject, html);
 
   res.success(scheduledInterview, 'Interview scheduled successfully', 201);
 });

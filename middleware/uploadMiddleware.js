@@ -3,12 +3,14 @@ const multer = require("multer");
 const path = require("path");
 const { imageStorage } = require("../config/cloudinary");
 
-const localDiskStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
   filename: (req, file, cb) => {
     const uniqueName = `${Date.now()}-${file.originalname}`;
     cb(null, uniqueName);
-  },
+  }
 });
 
 const docFileFilter = (req, file, cb) => {
@@ -26,7 +28,7 @@ const imageFileFilter = (req, file, cb) => {
 };
 
 const uploadDocs = multer({
-  storage: localDiskStorage,
+  storage,
   fileFilter: docFileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });

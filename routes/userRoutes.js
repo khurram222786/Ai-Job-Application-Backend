@@ -8,8 +8,7 @@ const validateConversation = require("../middleware/interviewConversationValidat
 const { uploadImages } = require("../middleware/uploadMiddleware"); // assuming you’ve configured Cloudinary multer
 const userController = require("../controllers/applicationController");
 
-router.use(responseHandler);  // for setting the proper response
-
+router.use(responseHandler);  
 router.post(
   "/applications/:jobId",
   protect,
@@ -34,7 +33,7 @@ router.post(
 router.patch(
   "/profile",
   protect,
-  uploadImages.single("profile"), // field name must match frontend
+  uploadImages.single("profile"),  
   userController.updateProfile
 );
 
