@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("./../controllers/adminController");
+const interviewController =require("./../controllers/interviewController")
 const { protect, authorize } = require("./../middleware/authMiddleware");
 const responseHandler = require("../middleware/responseHandler");
 
@@ -11,10 +12,14 @@ router
   .post(protect, authorize("admin"), adminController.createJob)
   .get(protect, adminController.getMyJobs);
 
+
+router.get("/jobs/:jobId/interviews",interviewController.getJobInterviews)
+
 router
   .route("/jobs/:id")
   .put(protect, authorize("admin"), adminController.updateJobById)
   .delete(protect, authorize("admin"), adminController.deleteJobById);
+
 
 router.get(
   "/jobs/:jobId/applications",
@@ -43,6 +48,7 @@ router.post(
   authorize("admin"),
   adminController.scheduleUserInterview
 );
+
 
 
 
