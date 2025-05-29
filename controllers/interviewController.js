@@ -1,5 +1,6 @@
 const interviewConversationRepository = require("../repositories/interviewConversationRepository");
 const interviewRepository = require("../repositories/interviewRepository");
+const jobRepository = require('../repositories/jobRepository')
 const asyncErrorHandler = require("../Utils/asyncErrorHandler");
 const CustomError = require("../Utils/customError");
 
@@ -36,7 +37,24 @@ exports.saveInterviewConversation = asyncErrorHandler(
 
     const responseData = JSON.parse(newConversation.conversation);
 
-
     res.success(responseData, "Interview conversation saved successfully", 201);
   }
 );
+
+
+
+exports.getJobInterviews = asyncErrorHandler(async (req, res, next) => {
+  const {jobId} = req.params;
+
+  const jobExists = await jobRepository.findJobById(jobId);
+
+  if (!jobExists) {
+    return next(new CustomError("Job not found", 404));
+  }
+
+  const interviews = await interviewRepository.getInterviewsByJobId(jobId);
+
+  res.success({
+    interviews,
+  });
+});

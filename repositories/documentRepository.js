@@ -1,11 +1,6 @@
 const { Document } = require('../models');
 
 module.exports = {
-  async findDocumentByUserId(userId) {
-    return await Document.findOne({
-      where: { user_id: userId }
-    });
-  },
 
   async createDocument(documentData) {
     return await Document.create(documentData);

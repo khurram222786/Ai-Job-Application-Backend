@@ -51,6 +51,39 @@ module.exports = {
     ],
     order: [["interview_date", "ASC"]],
   });
+},
+
+async getInterviewsByJobId(jobId) {
+  const applications = await Application.findAll({
+    where: { job_id: jobId },
+    attributes: ['id']
+  });
+  
+  const applicationIds = applications.map(app => app.id);
+  console.log("applications", applicationIds)
+
+  return await Interview.findAll({
+    where: { application_id: applicationIds },
+    include: [
+      {
+        model: Application,
+        include: [
+          {
+            model: Job,
+            attributes: ['id', 'title']
+          }
+        ]
+      },
+      {
+        model: User,
+        attributes: ['user_id', 'username', 'email']
+      }
+    ],
+    order: [
+      ['interview_date', 'DESC'],
+      ['start_time', 'ASC']
+    ]
+  });
 }
 
 };

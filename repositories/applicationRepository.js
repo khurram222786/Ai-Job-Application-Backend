@@ -1,3 +1,4 @@
+const { application } = require("express");
 const { Application, Job, User, Document } = require("../models");
 
 module.exports = {
@@ -72,6 +73,7 @@ module.exports = {
       where: { user_id: userId, job_id: jobId },
     });
   },
+  
 
   async createApplication(applicationData) {
     return await Application.create(applicationData);
