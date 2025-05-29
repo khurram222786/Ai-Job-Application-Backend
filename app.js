@@ -5,6 +5,7 @@ const { sequelize } = require("./config/sequelize");
 const bodyParser = require("body-parser");
 const setupRoutes = require("./config/routes");
 const { configureCloudinary } = require('./config/cloudinary');
+const InterviewWebSocketService = require('./socket/server');
 
 // Initialize Express app
 const app = express();
@@ -21,14 +22,16 @@ configureCloudinary();
 
 // Setup routes
 setupRoutes(app);
+const server = app.listen(process.env.PORT || 3000, () => {
+  console.log(`Server running on port ${process.env.PORT || 3000}`);
+});
 
-// Start server
-sequelize
-  .sync()
+// Initialize WebSocket service
+new InterviewWebSocketService(server);
+
+// Database sync
+sequelize.sync()
   .then(() => {
     console.log("Database synced");
-    app.listen(process.env.PORT || 3000, () => {
-      console.log(`Server running on port ${process.env.PORT || 3000}`);
-    });
   })
   .catch((err) => console.error("Unable to sync database:", err));

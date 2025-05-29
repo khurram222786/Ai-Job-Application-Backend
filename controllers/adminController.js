@@ -230,22 +230,22 @@ exports.scheduleUserInterview = asyncErrorHandler(async (req, res, next) => {
     media_id: interviewData.media_id || null
   });
 
-  const scheduledInterview = await interviewRepository.getInterviewDetails(interview.id);
+  // const scheduledInterview = await interviewRepository.getInterviewDetails(interview.id);
 
-  const subject = 'Your Interview is Scheduled';
-  const html = `
-    <h2>Hello ${user.name},</h2>
-    <p>Your interview has been scheduled successfully. Here are the details:</p>
-    <ul>
-      <li><strong>Date:</strong> ${interviewData.interview_date}</li>
-      <li><strong>Start Time:</strong> ${interviewData.start_time}</li>
-      <li><strong>End Time:</strong> ${interviewData.end_time}</li>
-      <li><strong>Platform:</strong> ${interviewData.platform || 'Not specified'}</li>
-    </ul>
-    <p>Good luck!</p>
-  `;
+  // const subject = 'Your Interview is Scheduled';
+  // const html = `
+  //   <h2>Hello ${user.name},</h2>
+  //   <p>Your interview has been scheduled successfully. Here are the details:</p>
+  //   <ul>
+  //     <li><strong>Date:</strong> ${interviewData.interview_date}</li>
+  //     <li><strong>Start Time:</strong> ${interviewData.start_time}</li>
+  //     <li><strong>End Time:</strong> ${interviewData.end_time}</li>
+  //     <li><strong>Platform:</strong> ${interviewData.platform || 'Not specified'}</li>
+  //   </ul>
+  //   <p>Good luck!</p>
+  // `;
 
   // await sendEmail(user.email, subject, html);
 
-  res.success(scheduledInterview, 'Interview scheduled successfully', 201);
+  res.success(interview, 'Interview scheduled successfully', 201);
 });
