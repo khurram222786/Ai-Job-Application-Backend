@@ -49,7 +49,12 @@ router.post(
   adminController.scheduleUserInterview
 );
 
-
+router.get(
+  "/interview/conversation/:interviewId",
+  protect,
+  authorize("admin"),
+  adminController.getInterviewConversation
+);
 
 
 

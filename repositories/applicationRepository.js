@@ -1,5 +1,6 @@
 const { application } = require("express");
 const { Application, Job, User, Document } = require("../models");
+const { Op } = require("sequelize");
 
 module.exports = {
   async findJobWithOwner(jobId, userId) {
@@ -77,5 +78,23 @@ module.exports = {
 
   async createApplication(applicationData) {
     return await Application.create(applicationData);
+  },
+
+  async getUserApplications(userId) {
+    return await Application.findAll({
+      where: { 
+        user_id: userId,
+        status: {
+          [Op.notIn]: ['rejected', 'withdrawn'] // Only get active applications
+        }
+      },
+      include: [
+        {
+          model: Job,
+          attributes: ['id', 'title', 'description']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
   },
 };

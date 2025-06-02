@@ -27,6 +27,13 @@ const imageFileFilter = (req, file, cb) => {
   allowedTypes.includes(file.mimetype) ? cb(null, true) : cb(new Error("Only image files are allowed"), false);
 };
 
+
+const videoFileFilter = (req, file, cb) => {
+  const allowedTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/avi", "video/webm"];
+  allowedTypes.includes(file.mimetype) ? cb(null, true) : cb(new Error("Only video files are allowed"), false);
+};
+
+
 const uploadDocs = multer({
   storage,
   fileFilter: docFileFilter,
@@ -39,7 +46,14 @@ const uploadImages = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
 
+const uploadVideos = multer({
+  storage,
+  fileFilter: videoFileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+});
+
 module.exports = {
   uploadDocs,
-  uploadImages
+  uploadImages,
+  uploadVideos
 };
