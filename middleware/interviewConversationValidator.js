@@ -40,7 +40,7 @@ const validateConversation = (req, res, next) => {
         )
       );
     }
-    if (!message.message || typeof message.message !== "string") {
+    if (!message.text || typeof message.text !== "string") {
       return next(
         new CustomError(
           `Message at index ${index} must have a string message`,

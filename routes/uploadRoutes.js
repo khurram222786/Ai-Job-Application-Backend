@@ -18,7 +18,7 @@ router.route("/pdf").post(
 router.route("/video/:interview_id").post(
   protect,
   authorize("user"),
-  uploadVideos.single("file"),
+  uploadVideos.single("video"),
   uploadController.uploadVideo
 );
 

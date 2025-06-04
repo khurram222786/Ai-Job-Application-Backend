@@ -49,7 +49,7 @@ const uploadImages = multer({
 const uploadVideos = multer({
   storage,
   fileFilter: videoFileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: { fileSize: 100 * 1024 * 1024 }, // 50MB
 });
 
 module.exports = {
