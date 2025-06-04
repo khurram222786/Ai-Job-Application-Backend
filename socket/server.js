@@ -43,7 +43,14 @@ class InterviewWebSocketService {
           medium: [],
           hard: []
         },
-        askedResumeQuestions: []
+        askedResumeQuestions: [],
+        candidateScore: {
+          technicalDepth: 0,
+          experienceScore: 0,
+          communicationScore: 0,
+          totalScore: 0,
+          responseHistory: []
+        }
       });
 
       this.setupMessageHandlers(ws, sessionId);
@@ -277,13 +284,13 @@ class InterviewWebSocketService {
     session.followupCount = 0;
     if (session.timeoutHandle) clearTimeout(session.timeoutHandle);
 
-    // Analyze the response
     const analysis = await this.analyzeCandidateResponse(data.text, session);
     session.lastResponseAnalysis = analysis;
-    session.candidateLevel = "senior"
     
-    console.log("candidate levle ------>",session.candidateLevel)
-    // Store conversation context
+    // session.questionCount++;
+    
+    session.candidateLevel = this.determineCandidateLevel(analysis, session);
+    
     session.conversationContext.push({
       question: session.messages[session.messages.length - 1].parts[0].text,
       response: data.text,
@@ -381,7 +388,6 @@ class InterviewWebSocketService {
     if (session.lastResponseAnalysis?.interestingAspects?.length > 0) {
       lastInteresting = `They recently mentioned: ${session.lastResponseAnalysis.interestingAspects[0]}. `;
     }
-  
     const prompt = {
       role: 'user',
       parts: [{
@@ -399,7 +405,10 @@ class InterviewWebSocketService {
         ${session.conversationContext.slice(-3).map(c => `Q: ${c.question}\nA: ${c.response}`).join('\n\n')}`
       }]
     };
-    
+
+    console.log("<==========================next questionprompt===============================================>",prompt)
+
+
     return await this.callGeminiAPI([prompt], this.getTemperature(phase));
   }
 
@@ -448,44 +457,79 @@ class InterviewWebSocketService {
     }
   }
 
-  determineCandidateLevel(analysis, currentLevel, MAX_QUESTIONS,questionCount) {
-      
-    console.log("Analysis=======>",analysis)
-    console.log("currentLevel====>", currentLevel)
-    console.log("max questions====>", MAX_QUESTIONS)
-    console.log("question count====>", questionCount)
+  determineCandidateLevel(analysis, session) {
+    const { technicalDepth, experienceIndicators, wordCount, sentiment } = analysis;
     
-    MAX_QUESTIONS = MAX_QUESTIONS || 5; // Use class default if not provided
-      questionCount = questionCount || 0; // Start at 0 if not provided
-      currentLevel = currentLevel || 'mid'; // Default to mid if not provided
-      const { technicalDepth, experienceIndicators } = analysis;
-     
-      let levelScore = technicalDepth
-      
-      console.log("levelScore====>",levelScore)
-      // Adjust based on experience indicators
-      if (experienceIndicators.includes('senior')) levelScore += 2;
-      if (experienceIndicators.includes('mid')) levelScore += 1;
-      if (experienceIndicators.includes('junior')) levelScore -= 1;
-      
-      // Dynamic thresholds that increase as interview progresses
-      const seniorThreshold = 5 + (3 * progressFactor);  // 5-8 range
-      const midThreshold = 3 + (2 * progressFactor);     // 3-5 range
-      
-      // Only change level if score crosses threshold by a margin
-      if (levelScore >= seniorThreshold && currentLevel !== 'senior') {
-          return 'senior';
+    const progressFactor = session.questionCount / this.MAX_QUESTIONS;
+    
+    const technicalWeight = 0.45;
+    const normalizedTechnicalDepth = (technicalDepth / 5) * 5; // Normalize to 0-5 scale
+    session.candidateScore.technicalDepth = 
+      (session.candidateScore.technicalDepth * (1 - technicalWeight)) + 
+      (normalizedTechnicalDepth * technicalWeight);
+    
+    // Update experience score based on indicators with wider range
+    let experienceScore = 0;
+    if (experienceIndicators.includes('senior')) experienceScore += 4;
+    if (experienceIndicators.includes('mid')) experienceScore += 2;
+    if (experienceIndicators.includes('junior')) experienceScore += 0;
+    
+    const experienceWeight = 0.3;
+    session.candidateScore.experienceScore = 
+      (session.candidateScore.experienceScore * (1 - experienceWeight)) + 
+      (experienceScore * experienceWeight);
+    
+    // Calculate communication score with higher range
+    const communicationScore = Math.min(wordCount / 30, 1) * 3 + 
+      (sentiment === 'positive' ? 2 : sentiment === 'neutral' ? 1 : 0); 
+    
+    
+    const communicationWeight = 0.3;
+    session.candidateScore.communicationScore = 
+      (session.candidateScore.communicationScore * (1 - communicationWeight)) + 
+      (communicationScore * communicationWeight);
+    
+    // Calculate total score with adjusted weights
+    session.candidateScore.totalScore = 
+      session.candidateScore.technicalDepth * 0.5 +
+      session.candidateScore.experienceScore * 0.3 +
+      session.candidateScore.communicationScore * 0.2;
+    
+    // Store response history
+    session.candidateScore.responseHistory.push({
+      questionNumber: session.questionCount,
+      analysis,
+      scores: {
+        technicalDepth: session.candidateScore.technicalDepth,
+        experienceScore: session.candidateScore.experienceScore,
+        communicationScore: session.candidateScore.communicationScore,
+        totalScore: session.candidateScore.totalScore
       }
-      
-      if (levelScore >= midThreshold && currentLevel !== 'mid') {
-          return 'mid';
-      }
-      
-      if (levelScore < midThreshold && currentLevel !== 'junior') {
-          return 'junior';
-      }
-      
-      return currentLevel;
+    });
+    
+    const seniorThreshold = 3.0 + (0.7 * progressFactor);  // 3.0-3.7 range
+    const midThreshold = 1.5 + (0.5 * progressFactor); // 1.5-2.0 range
+    
+    let newLevel = session.candidateLevel;
+
+    console.log("senior threshold---->",seniorThreshold)
+    console.log("mid threshold---->",midThreshold)
+    console.log("total score---->",session.candidateScore.totalScore)
+
+    if (session.candidateScore.totalScore >= seniorThreshold) {
+      newLevel = 'senior';
+    } else if (session.candidateScore.totalScore >= midThreshold) {
+      newLevel = 'mid';
+    } else {
+      newLevel = 'junior';
+    }
+    
+    if (newLevel !== session.candidateLevel) {
+      console.log(`Candidate level changed from ${session.candidateLevel} to ${newLevel}`);
+      console.log(`Current scores:`, session.candidateScore);
+    }
+    
+    return newLevel;
   }
 
   shouldAskFollowUp(session) {
