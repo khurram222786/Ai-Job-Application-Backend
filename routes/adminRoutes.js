@@ -49,7 +49,10 @@ router.post(
   adminController.scheduleUserInterview
 );
 
-
+router.get(
+  "/interview/detail/:interviewId",
+  adminController.getInterviewConversation
+);
 
 
 

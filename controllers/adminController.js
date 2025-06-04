@@ -7,8 +7,9 @@ const interviewRepository= require('../repositories/interviewRepository')
 const userRepository=require('../repositories/userRepository')
 const applicationRepository = require('../repositories/applicationRepository');
 const { APPLICATION_STATUS } = require('../constants/index');
-
+const interviewConversationRepository = require('../repositories/interviewConversationRepository');
 const sendEmail = require('../Utils/mailer');
+const { json } = require("body-parser");
 
 exports.createJob = asyncErrorHandler(async (req, res, next) => {
   const { title, description, requirements, skills } = req.body;
@@ -230,22 +231,23 @@ exports.scheduleUserInterview = asyncErrorHandler(async (req, res, next) => {
     media_id: interviewData.media_id || null
   });
 
-  // const scheduledInterview = await interviewRepository.getInterviewDetails(interview.id);
-
-  // const subject = 'Your Interview is Scheduled';
-  // const html = `
-  //   <h2>Hello ${user.name},</h2>
-  //   <p>Your interview has been scheduled successfully. Here are the details:</p>
-  //   <ul>
-  //     <li><strong>Date:</strong> ${interviewData.interview_date}</li>
-  //     <li><strong>Start Time:</strong> ${interviewData.start_time}</li>
-  //     <li><strong>End Time:</strong> ${interviewData.end_time}</li>
-  //     <li><strong>Platform:</strong> ${interviewData.platform || 'Not specified'}</li>
-  //   </ul>
-  //   <p>Good luck!</p>
-  // `;
-
-  // await sendEmail(user.email, subject, html);
-
   res.success(interview, 'Interview scheduled successfully', 201);
+});
+
+
+exports.getInterviewConversation = asyncErrorHandler(async (req, res, next) => {
+  const { interviewId } = req.params;
+
+  const interview = await interviewRepository.findInterviewById(interviewId);
+  if (!interview) return next(new CustomError('Interview not found', 404));
+
+  const conversation = await interviewConversationRepository.findConversationByInterviewId(interviewId);
+
+  if(!conversation) return next(new CustomError("no conversation Found", 404))
+
+  const videofeed= await interviewConversationRepository.findVideoFeedByInterviewId(interviewId)
+  const parsedConversation = JSON.parse(conversation.conversation);
+
+  res.success({parsedConversation,videofeed} , 'Interview conversation retrieved successfully', 200);
+  
 });

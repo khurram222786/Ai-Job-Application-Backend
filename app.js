@@ -17,8 +17,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Configure Cloudinary (using the exported function)
-configureCloudinary();
+
 
 // Setup routes
 setupRoutes(app);

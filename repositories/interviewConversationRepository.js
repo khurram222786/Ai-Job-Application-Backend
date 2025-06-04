@@ -1,4 +1,4 @@
-const { InterviewConversation } = require("../models");
+const { InterviewConversation, Media } = require("../models");
 
 module.exports = {
   async findConversationByInterviewId(interviewId) {
@@ -6,6 +6,16 @@ module.exports = {
       where: { interview_id: interviewId },
     });
   },
+
+  async findVideoFeedByInterviewId(interviewId) {
+    return await Media.findOne({
+      where: { interview_id: interviewId },
+    });
+  },
+
+
+  
+
 
   async createConversation(interviewId, conversationData) {
     return await InterviewConversation.create({
