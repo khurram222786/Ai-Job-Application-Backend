@@ -50,9 +50,7 @@ router.post(
 );
 
 router.get(
-  "/interview/conversation/:interviewId",
-  protect,
-  authorize("admin"),
+  "/interview/detail/:interviewId",
   adminController.getInterviewConversation
 );
 

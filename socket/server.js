@@ -1,7 +1,7 @@
 const { WebSocketServer } = require('ws');
 const fetch = require('node-fetch');
 const parseResume = require('./../validators/pdf_parser');
-
+const prompt = require('./prompts')
 class InterviewWebSocketService {
   constructor(server) {
     this.PORT = process.env.WS_PORT || 3001;
@@ -10,41 +10,8 @@ class InterviewWebSocketService {
     this.API_URL = `https://generativelanguage.googleapis.com/v1/models/${this.MODEL_NAME}:generateContent?key=${this.GEMINI_API_KEY}`;
     this.MAX_QUESTIONS = 5;
     this.sessions = new Map();
-    
-    this.INTERVIEW_GUIDELINES = `You are Alex Carter, a senior technical recruiter at keepcodein. Conduct a screening interview with a candidate.
-
-Guidelines:
-1. Speak naturally and conversationally, like a human interviewer
-2. Keep responses under 3 sentences - be concise but friendly
-3. Use natural acknowledgments like "I see", "That's interesting", or "Great point"
-4. For placeholders, use realistic details (e.g., "keepcodein" instead of [company])
-5. Ask clear, focused questions one at a time
-6. Show genuine interest in responses with brief follow-ups when appropriate
-7. Maintain professional but warm tone throughout
-8. If the user asks to repeat the question, repeat it again in a rephrased version
-9. Personalize questions based on the candidate's resume when possible
-10. Focus on their specific skills, experiences, and projects mentioned in their resume
-11. Occasionally show subtle, professional humor when appropriate
-12. Adapt questions based on the candidate's apparent experience level
-13. Mix technical and behavioral questions naturally
-
-Example GOOD questions:
-"I noticed you worked with React at your last position. What did you enjoy most about that?"
-"Tell me about a time you had to debug a complex issue."
-"How would you approach designing a scalable API?"
-
-Example BAD questions:
-"Building on your experience with [technology], how would you [do something]?" 
-"Please elaborate on your utilization of [skill] in [context]."
-
-
-Interview flow:
-- Start with a friendly introduction
-- Ask ${this.MAX_QUESTIONS} total questions (mix of technical and behavioral)
-- End with clear next steps
-
-Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
-
+    this.RESUME_QUESTION_RATIO = 0.5; // 50% of questions should come from resume
+    this.INTERVIEW_GUIDELINES = prompt.INTERVIEW_GUIDELINES
     this.wss = new WebSocketServer({ server });
     this.userRepository = require('../repositories/userRepository');
     this.interviewRepository = require('../repositories/interviewRepository');
@@ -70,7 +37,13 @@ Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
         ws,
         resumeText: null,
         conversationContext: [],
-        lastResponseAnalysis: {}
+        lastResponseAnalysis: {},
+        resumeQuestions: {
+          easy: [],
+          medium: [],
+          hard: []
+        },
+        askedResumeQuestions: []
       });
 
       this.setupMessageHandlers(ws, sessionId);
@@ -84,6 +57,7 @@ Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
         const session = this.sessions.get(sessionId);
 
         if (data.type === 'user_info') {
+
           const validation = await this.validateUserSession(data.userId);
           
           if (!validation.isValid) {
@@ -142,6 +116,12 @@ Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
   async handleInterviewStart(session) {
     session.isInterviewActive = true;
     session.followupCount = 0;
+    session.askedResumeQuestions = [];
+
+    // Generate resume questions if we have resume text
+    if (session.resumeText) {
+      await this.generateResumeQuestions(session);
+    }
 
     let introPrompt = ``;
   
@@ -155,8 +135,6 @@ Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
       role: 'user',
       parts: [{ text: introPrompt }]
     });
-
-    console.log("session.messages --->", JSON.stringify(session.messages, null, 2))
 
     const responseText = await this.callGeminiAPI(session.messages, 0.7);
     session.messages.push({
@@ -173,16 +151,138 @@ Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
     this.setNextQuestionTimeout(session);
   }
 
+  async generateResumeQuestions(session) {
+    try {
+        const prompt = {
+            role: 'user',
+            parts: [{
+                text: `Generate 15 technical interview questions based on this resume, divided into easy, medium, and hard difficulty levels. 
+                Return ONLY a JSON object with this exact structure:
+                {
+                    "easy": ["question1", "question2", "question3", "question4", "question5"],
+                    "medium": ["question1", "question2", "question3", "question4", "question5"],
+                    "hard": ["question1", "question2", "question3", "question4", "question5"]
+                }
+                
+                Resume:
+                ${session.resumeText}
+                
+                Important Rules:
+                1. Return ONLY the JSON object with no additional text or commentary
+                2. Ensure all quotes are double quotes
+                3. Do not include any markdown formatting
+                4. Each difficulty level must have exactly 5 questions
+                5. Each question must be wrapped in double quotes
+                6. Do not include any trailing commas
+                Example
+                Return ONLY a JSON object with this exact structure:
+                {
+                    "easy": ["question1", "question2", "question3", "question4", "question5"],
+                    "medium": ["question1", "question2", "question3", "question4", "question5"],
+                    "hard": ["question1", "question2", "question3", "question4", "question5"]
+                }
+                `
+            }]
+        };
+
+        const response = await this.callGeminiAPI([prompt], 0.3);
+        
+        // Clean the response
+        let cleanResponse = response.trim();
+        
+        // Remove markdown formatting if present
+        if (cleanResponse.startsWith('```json')) {
+            cleanResponse = cleanResponse.substring(7);
+        }
+        if (cleanResponse.endsWith('```')) {
+            cleanResponse = cleanResponse.substring(0, cleanResponse.length - 3);
+        }
+        cleanResponse = cleanResponse.trim();
+        
+        // Validate JSON structure
+        const questions = JSON.parse(cleanResponse);
+        
+        // Validate we got all required fields
+        if (!questions.easy || !questions.medium || !questions.hard) {
+            throw new Error('Missing required difficulty levels');
+        }
+        
+        // Validate each difficulty has exactly 5 questions
+        ['easy', 'medium', 'hard'].forEach(difficulty => {
+            if (!Array.isArray(questions[difficulty])) {
+                throw new Error(`${difficulty} questions must be an array`);
+            }
+            if (questions[difficulty].length !== 5) {
+                throw new Error(`${difficulty} must have exactly 5 questions`);
+            }
+        });
+        
+
+        console.log("resume based questions----> EASY",questions.easy  )
+        
+        console.log("resume based questions----> medium " ,questions.medium  )
+
+          
+        console.log("resume based questions----> hard",questions.hard  )
+        // Store questions in the session
+        session.resumeQuestions = {
+            easy: questions.easy,
+            medium: questions.medium,
+            hard: questions.hard
+        };
+        
+        console.log('Successfully generated resume questions');
+    } catch (error) {
+        console.error('Error generating resume questions:', error);        
+        console.log('Using fallback resume questions');
+    }
+}
+
+  getResumeQuestion(session) {
+    
+    let difficulty;
+    switch(session.candidateLevel) {
+      case 'senior':
+        difficulty = Math.random() < 0.6 ? 'hard' : 
+                    Math.random() < 0.8 ? 'medium' : 'easy';
+        break;
+      case 'mid':
+        difficulty = Math.random() < 0.6 ? 'medium' : 
+                    Math.random() < 0.8 ? 'easy' : 'hard';
+        break;
+      default: // junior
+        difficulty = Math.random() < 0.6 ? 'easy' : 
+                    Math.random() < 0.8 ? 'medium' : 'hard';
+    }
+
+    // Get available questions for this difficulty
+    const availableQuestions = session.resumeQuestions[difficulty].filter(
+      q => !session.askedResumeQuestions.includes(q)
+    );
+
+    if (availableQuestions.length === 0) {
+      return null;
+    }
+
+    // Select a random question
+    const question = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
+    
+    // Mark it as asked
+    session.askedResumeQuestions.push(question);
+    
+    return question;
+  }
+
   async handleCandidateMessage(data, session) {
     session.followupCount = 0;
     if (session.timeoutHandle) clearTimeout(session.timeoutHandle);
 
     // Analyze the response
     const analysis = await this.analyzeCandidateResponse(data.text, session);
-    console.log("analysis test --->", analysis)
     session.lastResponseAnalysis = analysis;
-    session.candidateLevel = this.determineCandidateLevel(analysis, session.candidateLevel);
+    session.candidateLevel = "senior"
     
+    console.log("candidate levle ------>",session.candidateLevel)
     // Store conversation context
     session.conversationContext.push({
       question: session.messages[session.messages.length - 1].parts[0].text,
@@ -195,8 +295,8 @@ Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
       parts: [{ text: data.text }]
     });
 
-    // Acknowledge the response (70% chance)
-    if (Math.random() < 0.5) {
+    // Acknowledge the response (50% chance)
+    if (Math.random() < 0.1) {
       const acknowledgment = await this.generateAcknowledgment(session);
       if (acknowledgment) {
         session.messages.push({
@@ -217,7 +317,7 @@ Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
       return;
     }
 
-    // Ask follow-up question (30-70% chaqqnce)
+    // Ask follow-up question (30-70% chance)
     if (this.shouldAskFollowUp(session)) {
       const followUpQuestion = await this.generateFollowUpQuestion(session);
       if (followUpQuestion) {
@@ -253,63 +353,139 @@ Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
     this.setNextQuestionTimeout(session);
   }
 
-  async analyzeCandidateResponse(responseText, session) {
-  const analysisPrompt = {
-    role: 'user',
-    parts: [{
-      text: `Analyze this candidate response and return a plain JSON object without markdown formatting or additional text:
-      1. technicalDepth (1-5)
-      2. experienceIndicators (array of strings like 'junior', 'mid', 'senior')
-      3. keyPoints (array of strings)
-      4. interestingAspects (array of strings)
-      5. wordCount (number)
-      6. sentiment ('positive', 'neutral', or 'negative')
-      7. humorPotential (boolean)
-      
-      Response to analyze: "${responseText}"
-      
-      Return ONLY the JSON object with no additional text or formatting. Example:
-      {"technicalDepth":3,"experienceIndicators":["mid"],"keyPoints":["React experience"],"interestingAspects":[],"wordCount":42,"sentiment":"positive","humorPotential":false}`
-    }]
-  };
+  async generateNextQuestion(session) {
+    const phase = this.getInterviewPhase(session.questionCount);
+    const questionType = this.selectQuestionType(phase, session);
+    
 
-  try {
-    const analysisText = await this.callGeminiAPI([analysisPrompt], 0.3);
+    console.log("question type---->", questionType)
     
-    // Clean the response by removing markdown formatting if present
-    let cleanJson = analysisText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const useResumeQuestion = session.resumeText && 
+                            Math.random() < this.RESUME_QUESTION_RATIO && 
+                            session.askedResumeQuestions.length < 15; // Don't exceed total
     
-    return JSON.parse(cleanJson);
-  } catch (error) {
-    console.error('Analysis failed:', error);
-    return {
-      technicalDepth: 3,
-      experienceIndicators: ['mid'],
-      keyPoints: [],
-      interestingAspects: [],
-      wordCount: responseText.split(' ').length,
-      sentiment: 'neutral',
-      humorPotential: false
+    if (useResumeQuestion) {
+      const resumeQuestion = this.getResumeQuestion(session);
+      if (resumeQuestion) {
+        return resumeQuestion;
+      }
+    }
+    
+    // Original question generation logic for non-resume questions
+    let specificReference = '';
+    if (this.shouldReferenceResume(session)) {
+      specificReference = `Here's their resume content for reference: ${session.resumeText}\n`;
+    }
+    
+    let lastInteresting = '';
+    if (session.lastResponseAnalysis?.interestingAspects?.length > 0) {
+      lastInteresting = `They recently mentioned: ${session.lastResponseAnalysis.interestingAspects[0]}. `;
+    }
+  
+    const prompt = {
+      role: 'user',
+      parts: [{
+        text: `Ask a ${questionType} question for a ${session.candidateLevel} candidate.
+        ${specificReference}
+        ${lastInteresting}
+        The question should:
+        - Be 1-2 sentences
+        - Use natural, conversational language
+        - Reference specific technologies/experiences they mentioned
+        - Never use placeholders like [something]
+        - Flow naturally from the conversation
+        
+        Current conversation context:
+        ${session.conversationContext.slice(-3).map(c => `Q: ${c.question}\nA: ${c.response}`).join('\n\n')}`
+      }]
     };
+    
+    return await this.callGeminiAPI([prompt], this.getTemperature(phase));
   }
-}
 
-  determineCandidateLevel(analysis, currentLevel) {
-    const { technicalDepth, experienceIndicators, wordCount } = analysis;
+  async analyzeCandidateResponse(responseText, session) {
+    const analysisPrompt = {
+      role: 'user',
+      parts: [{
+        text: `Analyze this candidate response and return a plain JSON object without markdown formatting or additional text:
+        1. technicalDepth (1-5)
+        2. experienceIndicators (array of strings like 'junior', 'mid', 'senior')
+        3. keyPoints (array of strings)
+        4. interestingAspects (array of strings)
+        5. wordCount (number)
+        6. sentiment ('positive', 'neutral', or 'negative')
+        7. humorPotential (boolean)
+        
+        Response to analyze: "${responseText}"
+        
+        Return ONLY the JSON object with no additional text or formatting. Example:
+        {"technicalDepth":3,"experienceIndicators":["mid"],"keyPoints":["React experience"],"interestingAspects":[],"wordCount":42,"sentiment":"positive","humorPotential":false}`
+      }]
+    };
+
+    try {
+      const analysisText = await this.callGeminiAPI([analysisPrompt], 0.3);
+      
+      // Clean the response by removing markdown formatting if present
+      let cleanJson = analysisText.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      console.log("test analysis-->", cleanJson)
+
+
+
+      return JSON.parse(cleanJson);
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      return {
+        technicalDepth: 0,
+        experienceIndicators: ['junior'],
+        keyPoints: [],
+        interestingAspects: [],
+        wordCount: responseText.split(' ').length,
+        sentiment: 'neutral',
+        humorPotential: false
+      };
+    }
+  }
+
+  determineCandidateLevel(analysis, currentLevel, MAX_QUESTIONS,questionCount) {
+      
+    console.log("Analysis=======>",analysis)
+    console.log("currentLevel====>", currentLevel)
+    console.log("max questions====>", MAX_QUESTIONS)
+    console.log("question count====>", questionCount)
     
-    let levelScore = 0;
-    levelScore += technicalDepth;
-    
-    if (experienceIndicators.includes('senior')) levelScore += 2;
-    if (experienceIndicators.includes('mid')) levelScore += 1;
-    if (experienceIndicators.includes('junior')) levelScore -= 2;
-    
-    
-    if (levelScore >= 6 && currentLevel !== 'senior') return 'senior';
-    if (levelScore >= 4 && currentLevel !== 'mid') return 'mid';
-    if (levelScore <= 3 && currentLevel !== 'junior') return 'junior';
-    
-    return currentLevel;
+    MAX_QUESTIONS = MAX_QUESTIONS || 5; // Use class default if not provided
+      questionCount = questionCount || 0; // Start at 0 if not provided
+      currentLevel = currentLevel || 'mid'; // Default to mid if not provided
+      const { technicalDepth, experienceIndicators } = analysis;
+     
+      let levelScore = technicalDepth
+      
+      console.log("levelScore====>",levelScore)
+      // Adjust based on experience indicators
+      if (experienceIndicators.includes('senior')) levelScore += 2;
+      if (experienceIndicators.includes('mid')) levelScore += 1;
+      if (experienceIndicators.includes('junior')) levelScore -= 1;
+      
+      // Dynamic thresholds that increase as interview progresses
+      const seniorThreshold = 5 + (3 * progressFactor);  // 5-8 range
+      const midThreshold = 3 + (2 * progressFactor);     // 3-5 range
+      
+      // Only change level if score crosses threshold by a margin
+      if (levelScore >= seniorThreshold && currentLevel !== 'senior') {
+          return 'senior';
+      }
+      
+      if (levelScore >= midThreshold && currentLevel !== 'mid') {
+          return 'mid';
+      }
+      
+      if (levelScore < midThreshold && currentLevel !== 'junior') {
+          return 'junior';
+      }
+      
+      return currentLevel;
   }
 
   shouldAskFollowUp(session) {
@@ -361,48 +537,6 @@ Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
     };
     
     return await this.callGeminiAPI([acknowledgmentPrompt], 0.5);
-  }
-
-  async generateNextQuestion(session) {
-    const phase = this.getInterviewPhase(session.questionCount);
-    const questionType = this.selectQuestionType(phase, session);
-    
-    // Get specific details from resume or previous answers
-    let specificReference = '';
-    if (this.shouldReferenceResume(session)) {
-      specificReference = `Here's their resume content for reference: ${session.resumeText}\n`;
-    }
-    
-    // Get last interesting point if available
-    let lastInteresting = '';
-    if (session.lastResponseAnalysis?.interestingAspects?.length > 0) {
-      lastInteresting = `They recently mentioned: ${session.lastResponseAnalysis.interestingAspects[0]}. `;
-    }
-  
-    const prompt = {
-      role: 'user',
-      parts: [{
-        text: `Ask a ${questionType} question for a ${session.candidateLevel} candidate.
-        ${specificReference}
-        ${lastInteresting}
-        The question should:
-        - Be 1-2 sentences
-        - Use natural, conversational language
-        - Reference specific technologies/experiences they mentioned
-        - Never use placeholders like [something]
-        - Flow naturally from the conversation
-        
-        Example formats:
-        "I see you worked with [technology]. What was that experience like?"
-        "Tell me about a time you [relevant situation]."
-        "How would you approach [relevant challenge]?"
-        
-        Current conversation context:
-        ${session.conversationContext.slice(-3).map(c => `Q: ${c.question}\nA: ${c.response}`).join('\n\n')}`
-      }]
-    };
-    
-    return await this.callGeminiAPI([prompt], this.getTemperature(phase));
   }
 
   getInterviewPhase(questionCount) {
@@ -457,14 +591,6 @@ Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
 
   shouldReferenceResume(session) {
     return session.resumeText && Math.random() < 0.6;
-  }
-
-  shouldConnectToPrevious(session) {
-    return session.lastResponseAnalysis?.keyPoints?.length > 0 && Math.random() < 0.5;
-  }
-
-  shouldAddHumor(session) {
-    return session.lastResponseAnalysis?.humorPotential && Math.random() < 0.3;
   }
 
   getTemperature(phase) {
@@ -525,7 +651,7 @@ Important: Never reveal you're an AI. Present yourself as a human recruiter.`;
       } else {
         this.setNextQuestionTimeout(session);
       }
-    }, 600000);
+    }, 60000);
   }
 
   async concludeInterview(session, isTimeoutConclusion = false) {

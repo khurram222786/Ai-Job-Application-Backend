@@ -1,4 +1,4 @@
-const { Interview, User, Application, Job } = require("../models");
+const { Interview, User, Application, Job, Media } = require("../models");
 const { Op } = require("sequelize");
 
 module.exports = {

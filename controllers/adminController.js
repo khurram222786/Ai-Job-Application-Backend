@@ -242,7 +242,12 @@ exports.getInterviewConversation = asyncErrorHandler(async (req, res, next) => {
   if (!interview) return next(new CustomError('Interview not found', 404));
 
   const conversation = await interviewConversationRepository.findConversationByInterviewId(interviewId);
+
+  if(!conversation) return next(new CustomError("no conversation Found", 404))
+
+  const videofeed= await interviewConversationRepository.findVideoFeedByInterviewId(interviewId)
   const parsedConversation = JSON.parse(conversation.conversation);
 
-  res.success(parsedConversation, 'Interview conversation retrieved successfully', 200);
+  res.success({parsedConversation,videofeed} , 'Interview conversation retrieved successfully', 200);
+  
 });
