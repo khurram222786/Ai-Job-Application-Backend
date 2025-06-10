@@ -12,7 +12,6 @@ router
   .post(protect, authorize("admin"), adminController.createJob)
   .get(protect, adminController.getMyJobs);
 
-
 router.get("/jobs/:jobId/interviews",interviewController.getJobInterviews)
 
 router

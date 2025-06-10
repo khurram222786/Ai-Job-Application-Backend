@@ -39,6 +39,8 @@ exports.getMyJobs = asyncErrorHandler(async (req, res, next) => {
   const offset = (page - 1) * limit;
 
   const user = await jobRepository.findUserById(req.user.user_id);
+  const userType = await userRepository.findUserByUserId(user.user_type_id);
+  console.log("test---->",userType);
   if (!user) {
     return next(new CustomError("User not found", 404));
   }
@@ -49,7 +51,7 @@ exports.getMyJobs = asyncErrorHandler(async (req, res, next) => {
     order: [["createdAt", "DESC"]],
   };
 
-  if (user.user_type_id === 1) {
+  if (userType.role === "admin") {
     queryOptions.where = { user_id: req.user.user_id };
   } else {
     const appliedJobIds = await jobRepository.findAppliedJobIds(req.user.user_id);

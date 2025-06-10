@@ -87,7 +87,9 @@ module.exports = {
       attributes: ['profile_picture']
     });
     return user ? user.profile_picture : null;
-  }
-  
-  
+  },
+
+  async findUserByUserId(userId) {
+    return await UserType.findByPk(userId);
+  },
 };
