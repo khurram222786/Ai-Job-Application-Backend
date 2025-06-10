@@ -17,7 +17,7 @@ module.exports = {
     });
   },
   async findInterviewById(id) {
-    return await Interview.findByPk(id);
+    return await Interview.findByPk( id);
   },
 
   async createInterview(interviewData) {
@@ -53,6 +53,9 @@ module.exports = {
   });
 },
 
+
+
+
 async getInterviewsByJobId(jobId) {
   const applications = await Application.findAll({
     where: { job_id: jobId },
@@ -84,6 +87,11 @@ async getInterviewsByJobId(jobId) {
       ['start_time', 'ASC']
     ]
   });
-}
+},
 
-};
+async updateInterviewProgress(interviewId, progress) {
+  return await Interview.update(
+    { progress },
+    { where: { id: interviewId } }
+  );
+}};

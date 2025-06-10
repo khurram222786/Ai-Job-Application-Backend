@@ -2,6 +2,7 @@ const { cloudinary } = require("../config/cloudinary");
 const documentRepository = require("../repositories/documentRepository");
 const mediaRepository = require("../repositories/mediaRepository");
 const asyncErrorHandler = require("../Utils/asyncErrorHandler");
+const interviewRepository = require("../repositories/interviewRepository");
 const CustomError = require("../Utils/customError");
 const { uploadFile } = require("../config/cloudinary");
 const fs = require("fs");
@@ -53,6 +54,12 @@ exports.uploadVideo = asyncErrorHandler(async (req, res, next) => {
 
   const { user_id } = req.user;
   const { interview_id } = req.params;
+
+  const interview = await interviewRepository.findInterviewById(interview_id);
+  if(!interview){
+    return next(new CustomError("Interview not found", 404));
+  }
+  
 
   // Upload video using centralized upload function
   const cloudinaryResponse = await uploadFile(req.file, 'video');

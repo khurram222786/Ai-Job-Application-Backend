@@ -64,8 +64,7 @@ class InterviewWebSocketService {
         const session = this.sessions.get(sessionId);
 
         if (data.type === 'user_info') {
-
-          const validation = await this.validateUserSession(data.userId);
+          const validation = await this.validateUserSession(data.userId, data.interviewId);
           
           if (!validation.isValid) {
             ws.send(JSON.stringify({
@@ -78,9 +77,9 @@ class InterviewWebSocketService {
 
           session.userId = data.userId;
           session.applicationId = validation.application.id;
-          session.interviewId = validation.interview.id;
+          session.interviewId = data.interviewId;
           
-          console.log(`Validated session for userId: ${data.userId}`);
+          console.log(`Validated session for userId: ${data.userId}, interviewId: ${data.interviewId}`);
           session.resumeText = await parseResume(session.userId);
           if (session.resumeText) {
             session.messages.push({
@@ -125,7 +124,8 @@ class InterviewWebSocketService {
     session.followupCount = 0;
     session.askedResumeQuestions = [];
 
-    // Generate resume questions if we have resume text
+    await this.interviewRepository.updateInterviewProgress(session.interviewId, 'inprogress');
+
     if (session.resumeText) {
       await this.generateResumeQuestions(session);
     }
@@ -192,7 +192,7 @@ class InterviewWebSocketService {
             }]
         };
 
-        const response = await this.callGeminiAPI([prompt], 0.3);
+        const response = await this.callGeminiAPI([prompt], 0.1);
         
         // Clean the response
         let cleanResponse = response.trim();
@@ -761,7 +761,7 @@ class InterviewWebSocketService {
     }
   }
 
-  async validateUserSession(userId) {
+  async validateUserSession(userId, interviewId) {
     try {
       const user = await this.userRepository.findUserById(userId);
       if (!user) {
@@ -773,22 +773,23 @@ class InterviewWebSocketService {
         throw new Error('No active applications found');
       }
 
-      const interviews = await this.interviewRepository.getUserInterviews(userId);
-      const scheduledInterview = interviews.find(interview => {
-        const interviewDate = new Date(interview.interview_date);
-        const now = new Date();
-        return interviewDate >= now;
-      });
-
-      if (!scheduledInterview) {
-        throw new Error('No scheduled interview found');
+      const interview = await this.interviewRepository.findInterviewById(interviewId);
+      if (!interview) {
+        throw new Error('Interview not found');
       }
+
+
+      // const interviewDate = new Date(interview.interview_date);
+      // const now = new Date();
+      // if (interviewDate < now) {
+      //   throw new Error('Interview has already passed');
+      // }
 
       return {
         isValid: true,
         user,
         application: applications[0],
-        interview: scheduledInterview
+        interview
       };
     } catch (error) {
       console.error('Session validation error:', error);

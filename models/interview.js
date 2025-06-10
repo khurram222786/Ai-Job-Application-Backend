@@ -5,7 +5,11 @@ module.exports = (sequelize, DataTypes) => {
     interview_date: DataTypes.DATEONLY,
     application_id: DataTypes.INTEGER,
     user_id: DataTypes.INTEGER,
-    media_id: DataTypes.INTEGER
+    media_id: DataTypes.INTEGER,
+    progress: {
+      type: DataTypes.ENUM('scheduled', 'inprogress', 'completed'),
+      defaultValue: 'scheduled'
+    }
   }, {});
 
   Interview.associate = function(models) {
