@@ -107,6 +107,83 @@ The question should:
 Current conversation context:
 ${session.conversationContext.slice(-3).map(c => `Q: ${c.question}\nA: ${c.response}`).join('\n\n')}`;
 
+
+
+
+const createResumePrompt = (resumeText) => {
+  return `
+You are an AI resume parser.
+
+Extract the following fields from this resume in structured JSON format:
+
+{
+  "fullName": "",
+  "email": "",
+  "phone": "",
+  "location": "",
+  "linkedIn": "",
+  "github": "",
+  "portfolioWebsite": "",
+  "summary": "",
+
+  "skills": ["", "", "..."],
+
+  "experience": [
+    {
+      "jobTitle": "",
+      "companyName": "",
+      "startDate": "",
+      "endDate": "",
+      "location": "",
+      "responsibilities": ["", "", "..."]
+    }
+  ],
+
+  "education": [
+    {
+      "degree": "",
+      "university": "",
+      "startDate": "",
+      "endDate": "",
+      "cgpa": ""
+    }
+  ],
+
+  "certifications": [
+    {
+      "certificateName": "",
+      "issuingOrganization": "",
+      "issueDate": "",
+      "credentialLink": ""
+    }
+  ],
+
+  "projects": [
+    {
+      "projectTitle": "",
+      "description": "",
+      "techStack": ["", "", "..."],
+      "projectLink": ""
+    }
+  ],
+
+  "languages": [
+    {
+      "languageName": "",
+      "proficiencyLevel": ""
+    }
+  ]
+}
+
+Now extract this information from the resume content below:
+
+${resumeText}
+
+Respond only with the JSON structure above. Do not explain anything.
+`;
+};
+
+
 module.exports = {
   INTERVIEW_GUIDELINES,
   RESUME_QUESTION_PROMPT,
@@ -115,5 +192,6 @@ module.exports = {
   ACKNOWLEDGMENT_PROMPT,
   CONCLUSION_PROMPT,
   INTRO_PROMPT,
-  NEXT_QUESTION_PROMPT
+  NEXT_QUESTION_PROMPT,
+  createResumePrompt
 }; 

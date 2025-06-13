@@ -15,12 +15,10 @@ exports.uploadPDF = asyncErrorHandler(async (req, res, next) => {
 
   const { user_id } = req.user;
   
-  // Updated Cloudinary upload part
   const cloudinaryResponse = await uploadFile(req.file, 'document');
   const fileUrl = cloudinaryResponse.secure_url;
   const fileName = req.file.originalname;
 
-  // Rest remains exactly the same
   const existingDocument = await documentRepository.findDocumentByUserId(user_id);
   let document;
   let isNew = false;
@@ -29,6 +27,7 @@ exports.uploadPDF = asyncErrorHandler(async (req, res, next) => {
     document = await existingDocument.update({
       file_url: fileUrl,
       file_name: fileName,
+      parsed_data: null
     });
   } else {
     document = await documentRepository.createDocument({

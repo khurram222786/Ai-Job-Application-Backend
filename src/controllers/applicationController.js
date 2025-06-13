@@ -1,14 +1,35 @@
 const applicationRepository = require('../repositories/applicationRepository');
 const interviewRepository = require('../repositories/interviewRepository');
 const userRepository= require('../repositories/userRepository')
+const documentRepository = require('../repositories/documentRepository')
 const asyncErrorHandler = require('../Utils/asyncErrorHandler');
 const CustomError = require('../Utils/customError');
 const { User } = require("../models");
+const resume_parser= require('../validators/pdf_parser')
+const PROMPT = require('../socket/prompts')
+const { callGemini } = require('../validators/geminiHook');
 
 
 exports.applyForJob = asyncErrorHandler(async (req, res, next) => {
   const { jobId } = req.params;
   const userId = req.user.user_id;
+  resume_text= await resume_parser(userId);
+  const document = await documentRepository.findDocumentByUserId(userId) 
+    
+
+  if (document.parsed_data===null) {
+
+    parsing_prompt=PROMPT.createResumePrompt(resume_text)
+    let parsedResumeData = null;
+    const geminiResponse = await callGemini(parsing_prompt, 0.1);
+    const firstBrace = geminiResponse.indexOf('{');
+    const lastBrace = geminiResponse.lastIndexOf('}');
+    const jsonString = geminiResponse.slice(firstBrace, lastBrace + 1);
+    parsedResumeData = JSON.parse(jsonString);
+    document.parsed_data = parsedResumeData;
+    await document.save();
+
+  }
 
   const job = await applicationRepository.findJobById(jobId);
   if (!job) {
