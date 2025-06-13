@@ -11,9 +11,20 @@ module.exports = {
   },
 
   async findAndCountJobs(queryOptions) {
-    return await Job.findAndCountAll(queryOptions);
+    return await Job.findAndCountAll({
+      ...queryOptions,
+      include: [
+        {
+          model: User.scope(null),
+          attributes: ['username', 'email'],
+          required: false,
+        },
+      ],
+      raw: false,
+      nest: true,
+    });
   },
-
+  
   async updateJob(job, updateData) {
     return await job.update(updateData);
   },

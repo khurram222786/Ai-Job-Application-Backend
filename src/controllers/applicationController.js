@@ -93,3 +93,10 @@ exports.getUserProfile = asyncErrorHandler(async (req, res, next) => {
     }
   });
 });
+
+
+exports.getUserStats= asyncErrorHandler(async (req, res, next) => {
+  const userId = req.user.user_id;
+  const statistics= await userRepository.getUserStatistics(userId)
+  res.success(statistics, "user stats", 201);
+})

@@ -6,13 +6,13 @@ const jobRepository = require("../repositories/jobRepository");
 const interviewRepository= require('../repositories/interviewRepository')
 const userRepository=require('../repositories/userRepository')
 const applicationRepository = require('../repositories/applicationRepository');
-const { APPLICATION_STATUS } = require('../constants/index');
+const { APPLICATION_STATUS } = require('../validators/index');
 const interviewConversationRepository = require('../repositories/interviewConversationRepository');
 const sendEmail = require('../Utils/mailer');
 const { json } = require("body-parser");
 
 exports.createJob = asyncErrorHandler(async (req, res, next) => {
-  const { title, description, requirements, skills } = req.body;
+  const { title, description, requirements, skills,location,salary,responsibilities} = req.body;
 
   if (!title || !description || !requirements) {
     return next(new CustomError("Title, description and requirements are required", 400));
@@ -27,7 +27,10 @@ exports.createJob = asyncErrorHandler(async (req, res, next) => {
     title,
     description,
     requirements,
-    skills: skills || [] 
+    skills: skills || [],
+    responsibilities,
+    salary,
+    location 
   });
 
   res.success(newJob, "Job created successfully", 201);
@@ -35,12 +38,12 @@ exports.createJob = asyncErrorHandler(async (req, res, next) => {
 
 exports.getMyJobs = asyncErrorHandler(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 5;
+  const limit = parseInt(req.query.limit) || 26;
   const offset = (page - 1) * limit;
 
   const user = await jobRepository.findUserById(req.user.user_id);
   const userType = await userRepository.findUserByUserId(user.user_type_id);
-  console.log("test---->",userType);
+
   if (!user) {
     return next(new CustomError("User not found", 404));
   }
@@ -60,7 +63,7 @@ exports.getMyJobs = asyncErrorHandler(async (req, res, next) => {
       queryOptions.where = {
         id: { [Op.notIn]: appliedJobIds }
       };
-    }
+    } 
   }
 
   const { count, rows: jobs } = await jobRepository.findAndCountJobs(

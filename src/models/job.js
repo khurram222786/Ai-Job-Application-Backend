@@ -3,6 +3,18 @@ module.exports = (sequelize, DataTypes) => {
     title: DataTypes.STRING,
     description: DataTypes.TEXT,
     requirements: DataTypes.TEXT,
+    responsibilities: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    location: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    salary: {
+      type: DataTypes.STRING, // or DataTypes.INTEGER or DataTypes.FLOAT based on your needs
+      allowNull: true,
+    },
     user_id: DataTypes.INTEGER,
     skills: {
       type: DataTypes.ARRAY(DataTypes.STRING),
@@ -11,8 +23,9 @@ module.exports = (sequelize, DataTypes) => {
   }, {});
 
   Job.associate = function(models) {
-    Job.belongsTo(models.User, { foreignKey: 'user_id' });
+    Job.belongsTo(models.User, { foreignKey: 'user_id', targetKey: 'user_id' });
     Job.hasMany(models.Application, { foreignKey: 'job_id' });
   };
+
   return Job;
 };

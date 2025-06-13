@@ -160,6 +160,9 @@ class InterviewWebSocketService {
 
   async generateResumeQuestions(session) {
     try {
+
+
+      console.log("testtttttt------------>")
         const prompt = {
             role: 'user',
             parts: [{

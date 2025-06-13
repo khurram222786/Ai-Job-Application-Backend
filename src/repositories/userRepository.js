@@ -1,4 +1,4 @@
-const { User, Application, UserType, Document } = require("../models");
+const { User, Application, UserType, Document, Interview } = require("../models");
 
 module.exports = {
   async findUserByEmail(email) {
@@ -92,4 +92,33 @@ module.exports = {
   async findUserByUserId(userId) {
     return await UserType.findByPk(userId);
   },
+
+  async getUserStatistics(userId) {
+    try {
+      const [applicationCount, scheduledInterviewCount] = await Promise.all([
+        // Count total applications by the user
+        Application.count({
+          where: { user_id: userId }
+        }),
+  
+        // Count interviews scheduled for the user
+        Interview.count({
+          where: {
+            user_id: userId,
+            progress: 'scheduled'
+          }
+        })
+      ]);
+  
+      return {
+        user_id: userId,
+        total_applications: applicationCount,
+        scheduled_interviews: scheduledInterviewCount
+      };
+    } catch (error) {
+      console.error('Error fetching user statistics:', error);
+      throw error;
+    }
+  }
+ 
 };

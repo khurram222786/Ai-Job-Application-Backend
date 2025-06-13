@@ -6,7 +6,6 @@ const responseHandler = require("../middleware/responseHandler");
 const interviewConversationController = require("../controllers/interviewController");
 const validateConversation = require("../middleware/interviewConversationValidator");
 const { uploadImages } = require("../middleware/uploadMiddleware"); // assuming you’ve configured Cloudinary multer
-const userController = require("../controllers/applicationController");
 
 router.use(responseHandler);  
 router.post(
@@ -34,16 +33,23 @@ router.patch(
   "/profile",
   protect,
   uploadImages.single("profile"),  
-  userController.updateProfile
+  applicationController.updateProfile
 );
 
 router.get(
   "/profile",
   protect,
-  userController.getUserProfile
+  applicationController.getUserProfile
 );
 
 
+
+router.get(
+  "/statistics",
+  protect,
+  authorize("user"),
+  applicationController.getUserStats
+)
 
 
 module.exports = router;
