@@ -11,30 +11,6 @@ const interviewConversationRepository = require('../repositories/interviewConver
 const sendEmail = require('../Utils/mailer');
 const { json } = require("body-parser");
 
-exports.createJob = asyncErrorHandler(async (req, res, next) => {
-  const { title, description, requirements, skills,location,salary,responsibilities} = req.body;
-
-  if (!title || !description || !requirements) {
-    return next(new CustomError("Title, description and requirements are required", 400));
-  }
-
-  if (skills && !Array.isArray(skills)) {
-    return next(new CustomError("Skills must be an array of strings", 400));
-  }
-
-  const newJob = await jobRepository.createJob({
-    user_id: req.user.user_id,
-    title,
-    description,
-    requirements,
-    skills: skills || [],
-    responsibilities,
-    salary,
-    location 
-  });
-
-  res.success(newJob, "Job created successfully", 201);
-});
 
 exports.getMyJobs = asyncErrorHandler(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
@@ -75,8 +51,38 @@ exports.getMyJobs = asyncErrorHandler(async (req, res, next) => {
     totalPages: Math.ceil(count / limit),
     totalJobs: count,
     jobs,
-  });
+  } ,"Job Retrived successfully", 200);
 });
+
+
+exports.createJob = asyncErrorHandler(async (req, res, next) => {
+  const { title, description, requirements, skills,location,salary,responsibilities,employment_type,job_type,working_hours} = req.body;
+
+  if (!title || !description || !requirements) {
+    return next(new CustomError("Title, description and requirements are required", 400));
+  }
+
+  if (skills && !Array.isArray(skills)) {
+    return next(new CustomError("Skills must be an array of strings", 400));
+  }
+
+  const newJob = await jobRepository.createJob({
+    user_id: req.user.user_id,
+    title,
+    description,
+    requirements,
+    skills: skills || [],
+    responsibilities,
+    salary,
+    location ,
+    employment_type,
+    job_type,
+    working_hours
+  });
+
+  res.success(newJob, "Job created successfully", 201);
+});
+
 
 exports.updateJobById = asyncErrorHandler(async (req, res, next) => {
   const { id } = req.params;
@@ -101,7 +107,7 @@ exports.updateJobById = asyncErrorHandler(async (req, res, next) => {
     updatedAt: updatedJob.updatedAt,
   };
 
-  res.success(responseData, "Job updated successfully");
+  res.success(responseData, "Job updated successfully",200);
 });
 
 
@@ -116,7 +122,7 @@ exports.deleteJobById = asyncErrorHandler(async (req, res, next) => {
 
   await jobRepository.deleteJob(job);
 
-  res.success(null, "Job deleted successfully");
+  res.success(null, "Job deleted successfully", 200);
 });
 
 
@@ -136,7 +142,8 @@ exports.getJobApplications = asyncErrorHandler(async (req, res, next) => {
   res.success({
     totalApplications: applications.count,
     applications: applications.rows
-  });
+    
+  }, "Application  fetched successfully", 201);
 });
 
 

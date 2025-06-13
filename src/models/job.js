@@ -12,14 +12,26 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
     },
     salary: {
-      type: DataTypes.STRING, // or DataTypes.INTEGER or DataTypes.FLOAT based on your needs
+      type: DataTypes.STRING, // or INTEGER/FLOAT based on your app
       allowNull: true,
     },
     user_id: DataTypes.INTEGER,
     skills: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true,
-    }
+    },
+    working_hours: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    job_type: {
+      type: DataTypes.STRING, // e.g., 'remote', 'on-site', 'hybrid'
+      allowNull: true,
+    },
+    employment_type: {
+      type: DataTypes.STRING, // e.g., 'full-time', 'part-time'
+      allowNull: true,
+    },
   }, {});
 
   Job.associate = function(models) {
