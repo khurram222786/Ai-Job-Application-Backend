@@ -32,10 +32,16 @@ module.exports = {
       ],
     });
   },
-  
-  async getUserInterviews(userId) {
+  async  getUserInterviews(userId) {
+  const now = new Date();
+
   return await Interview.findAll({
-    where: { user_id: userId },
+    where: {
+      user_id: userId,
+      interview_date: {
+        [Op.gte]: new Date(now.setDate(now.getDate() - 1)) 
+      }
+    },
     attributes: ["id", "start_time", "end_time", "interview_date", "user_id"],
     include: [
       {
@@ -44,7 +50,13 @@ module.exports = {
         include: [
           {
             model: Job,
-            attributes: ["title", "description", "requirements", "skills", "user_id"]
+            attributes: [
+              "title",
+              "description",
+              "requirements",
+              "skills",
+              "user_id"
+            ]
           }
         ]
       }
@@ -52,9 +64,7 @@ module.exports = {
     order: [["interview_date", "ASC"]],
   });
 },
-
-
-
+  
 
 async getInterviewsByJobId(jobId) {
   const applications = await Application.findAll({

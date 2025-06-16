@@ -5,7 +5,7 @@ const applicationController = require("../controllers/applicationController");
 const responseHandler = require("../middleware/responseHandler");
 const interviewConversationController = require("../controllers/interviewController");
 const validateConversation = require("../middleware/interviewConversationValidator");
-const { uploadImages } = require("../middleware/uploadMiddleware"); // assuming you’ve configured Cloudinary multer
+const { uploadImages } = require("../middleware/uploadMiddleware"); 
 
 router.use(responseHandler);  
 router.post(
