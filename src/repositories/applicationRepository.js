@@ -23,7 +23,7 @@ module.exports = {
           include: [
             {
               model: Document,
-              attributes: ["file_url", "file_name"],
+              attributes: ["file_url", "file_name", "parsed_data"],
             },
           ],
         },

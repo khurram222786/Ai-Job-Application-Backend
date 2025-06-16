@@ -86,7 +86,7 @@ exports.createJob = asyncErrorHandler(async (req, res, next) => {
 
 exports.updateJobById = asyncErrorHandler(async (req, res, next) => {
   const { id } = req.params;
-  const { title, description, requirements } = req.body;
+  const { title, description, requirements, skills,location,salary,responsibilities,employment_type,job_type,working_hours} = req.body;
 
   const job = await jobRepository.findJobById(id);
   if (!job) {
@@ -97,6 +97,13 @@ exports.updateJobById = asyncErrorHandler(async (req, res, next) => {
     title: title ?? job.title,
     description: description ?? job.description,
     requirements: requirements ?? job.requirements,
+    skills: skills ?? job.skills,
+    responsibilities: responsibilities?? job.responsibilities,
+    salary: salary ?? job.salary ,
+    location: location ?? job.location,
+    employment_type: employment_type ?? job.employment_type,
+    job_type: job_type ?? job.job_type,
+    working_hours: working_hours ?? job.working_hours
   });
 
   const responseData = {
