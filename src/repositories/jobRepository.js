@@ -16,7 +16,7 @@ module.exports = {
       include: [
         {
           model: User.scope(null),
-          attributes: ['username', 'email'],
+          attributes: ['username', 'email','profile_picture'],
           required: false,
         },
       ],

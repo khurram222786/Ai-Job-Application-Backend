@@ -1,4 +1,5 @@
-const { User, Application, UserType, Document, Interview } = require("../models");
+const { User, Application, UserType, Document, Interview, Job } = require("../models");
+const { Op, Sequelize } = require('sequelize');
 
 module.exports = {
   async findUserByEmail(email) {
@@ -94,31 +95,44 @@ module.exports = {
   },
 
   async getUserStatistics(userId) {
-    try {
-      const [applicationCount, scheduledInterviewCount] = await Promise.all([
-        // Count total applications by the user
-        Application.count({
-          where: { user_id: userId }
-        }),
-  
-        // Count interviews scheduled for the user
-        Interview.count({
-          where: {
-            user_id: userId,
-            progress: 'scheduled'
+  try {
+    const [applicationCount, scheduledInterviewCount, availableJobs] = await Promise.all([
+      // Count total applications by the user
+      Application.count({
+        where: { user_id: userId }
+      }),
+
+      // Count interviews scheduled for the user
+      Interview.count({
+        where: {
+          user_id: userId,
+          progress: 'scheduled'
+        }
+      }),
+
+      // Get available jobs (exclude ones the user has applied to)
+      Job.count({
+        where: {
+          id: {
+            [Op.notIn]: Sequelize.literal(`(
+              SELECT "job_id" FROM "Applications" WHERE "user_id" = ${userId}
+            )`)
           }
-        })
-      ]);
-  
-      return {
-        user_id: userId,
-        total_applications: applicationCount,
-        scheduled_interviews: scheduledInterviewCount
-      };
-    } catch (error) {
-      console.error('Error fetching user statistics:', error);
-      throw error;
-    }
+        }
+      })
+    ]);
+
+    return {
+      user_id: userId,
+      total_applications: applicationCount,
+      scheduled_interviews: scheduledInterviewCount,
+      available_jobs: availableJobs
+    };
+  } catch (error) {
+    console.error('Error fetching user statistics:', error);
+    throw error;
   }
+}
+
  
 };

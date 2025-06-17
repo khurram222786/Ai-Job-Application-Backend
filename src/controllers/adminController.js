@@ -14,7 +14,7 @@ const { json } = require("body-parser");
 
 exports.getMyJobs = asyncErrorHandler(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 26;
+  const limit = parseInt(req.query.limit) || 6;
   const offset = (page - 1) * limit;
 
   const user = await jobRepository.findUserById(req.user.user_id);
