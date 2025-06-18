@@ -10,7 +10,7 @@ class InterviewWebSocketService {
     this.API_URL = `https://generativelanguage.googleapis.com/v1/models/${this.MODEL_NAME}:generateContent?key=${this.GEMINI_API_KEY}`;
     this.MAX_QUESTIONS = 5;
     this.sessions = new Map();
-    this.RESUME_QUESTION_RATIO = 0.5; // 50% of questions should come from resume
+    this.RESUME_QUESTION_RATIO = 0.3; 
     this.INTERVIEW_GUIDELINES = prompt.INTERVIEW_GUIDELINES
     this.wss = new WebSocketServer({ server });
     this.userRepository = require('../repositories/userRepository');
@@ -162,7 +162,7 @@ class InterviewWebSocketService {
     try {
 
 
-      console.log("testtttttt------------>")
+      console.log("Resume Generated Questions------------>")
         const prompt = {
             role: 'user',
             parts: [{
@@ -306,8 +306,9 @@ class InterviewWebSocketService {
     });
 
     // Acknowledge the response (50% chance)
-    if (Math.random() < 0.1) {
+    if (Math.random() < 0.8) {
       const acknowledgment = await this.generateAcknowledgment(session);
+      console.log("test acknowlegement--->", acknowledgment)
       if (acknowledgment) {
         session.messages.push({
           role: 'model',
@@ -327,7 +328,6 @@ class InterviewWebSocketService {
       return;
     }
 
-    // Ask follow-up question (30-70% chance)
     if (this.shouldAskFollowUp(session)) {
       const followUpQuestion = await this.generateFollowUpQuestion(session);
       if (followUpQuestion) {
@@ -698,7 +698,7 @@ class InterviewWebSocketService {
       } else {
         this.setNextQuestionTimeout(session);
       }
-    }, 60000);
+    }, 300000);
   }
 
   async concludeInterview(session, isTimeoutConclusion = false) {
@@ -731,6 +731,7 @@ class InterviewWebSocketService {
     }));
 
     session.isInterviewActive = false;
+    await this.interviewRepository.updateInterviewProgress(session.interviewId, 'completed');
     setTimeout(() => session.ws.close(), 1000);
   }
 
@@ -780,13 +781,7 @@ class InterviewWebSocketService {
       if (!interview) {
         throw new Error('Interview not found');
       }
-
-
-      // const interviewDate = new Date(interview.interview_date);
-      // const now = new Date();
-      // if (interviewDate < now) {
-      //   throw new Error('Interview has already passed');
-      // }
+      
 
       return {
         isValid: true,
