@@ -57,6 +57,7 @@ module.exports = (sequelize, DataTypes) => {
     User.hasMany(models.Application, { foreignKey: 'user_id' });
     User.hasMany(models.Interview, { foreignKey: 'user_id' });
     User.hasMany(models.Media, { foreignKey: 'user_id' });
+    User.hasMany(models.SavedJob, { foreignKey: 'user_id', as: 'SavedJobs' });
   };
 
   // Add password validation method
