@@ -62,8 +62,31 @@ exports.getSavedJobs = asyncErrorHandler(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
 
-  const appliedID = await savedJobRepository.getAllUserAppliedJobIds(userId)
-  const { count, rows: savedJobs } = await savedJobRepository.getUserSavedJobs(appliedID,userId, page, limit);
+  const appliedJobs= await savedJobRepository.getAllUserAppliedJobIds(userId);
+  const { count, rows: savedJobs } = await savedJobRepository.getUserSavedJobs(userId, page, limit,appliedJobs);
+
+  // Transform the data to include job details
+  // const transformedSavedJobs = savedJobs.map(savedJob => ({
+  //   saved_at: savedJob.saved_at,
+  //   job: {
+  //     id: savedJob.Job.id,
+  //     title: savedJob.Job.title,
+  //     description: savedJob.Job.description,
+  //     requirements: savedJob.Job.requirements,
+  //     location: savedJob.Job.location,
+  //     salary: savedJob.Job.salary,
+  //     skills: savedJob.Job.skills,
+  //     job_type: savedJob.Job.job_type,
+  //     employment_type: savedJob.Job.employment_type,
+  //     working_hours: savedJob.Job.working_hours,
+  //     responsibilities: savedJob.Job.responsibilities,
+  //     created_at: savedJob.Job.createdAt,
+  //     employer: {
+  //       username: savedJob.Job.User.username,
+  //       email: savedJob.Job.User.email
+  //     }
+  //   }
+  // }));
 
   res.success({
     currentPage: page,

@@ -1,5 +1,5 @@
 const { SavedJob, Job, User, Application } = require("../models");
-const { Op, where } = require("sequelize");
+const { Op } = require("sequelize");
 
 class SavedJobRepository {
   async saveJob(userId, jobId) {
@@ -26,16 +26,19 @@ class SavedJobRepository {
       }
     });
   }
+  
+  async getAllUserAppliedJobIds(userid) {
+    const applications = await Application.findAll({
+      where: { user_id: userid },
+      attributes: ['job_id']
+    });
+    return applications.map(app => app.job_id);
+  }
 
-
-  async getUserSavedJobs(userId, page = 1, limit = 10, appliedID) {
+  async getUserSavedJobs(userId, page = 1, limit = 10, appliedJobs) {
     const offset = (page - 1) * limit;
-    const whereClause = { user_id: userId };
-    if (appliedID && Array.isArray(appliedID) && appliedID.length > 0) {
-      whereClause.job_id = { [Op.notIn]: appliedID };
-    }
-    return await SavedJob.findAndCountAll({
-      where: whereClause,
+    const savedjobs = await SavedJob.findAndCountAll({
+      where: { user_id: userId },
       include: [
         {
           model: Job,
@@ -53,6 +56,15 @@ class SavedJobRepository {
       limit,
       offset
     });
+    // Filter out jobs whose job_id is in appliedJobs
+    let filteredRows = savedjobs.rows;
+    if (appliedJobs && Array.isArray(appliedJobs) && appliedJobs.length > 0) {
+      filteredRows = savedjobs.rows.filter(saved => !appliedJobs.includes(saved.job_id));
+    }
+    return {
+      count: filteredRows.length,
+      rows: filteredRows
+    };
   }
 
   async getSavedJobIds(userId) {
@@ -66,14 +78,6 @@ class SavedJobRepository {
   async checkIfJobSaved(userId, jobId) {
     const savedJob = await this.findSavedJob(userId, jobId);
     return !!savedJob;
-  }
-
-  async getAllUserAppliedJobIds(userid) {
-    const applications = await Application.findAll({
-      where: { user_id: userid },
-      attributes: ['job_id']
-    });
-    return applications.map(app => app.job_id);
   }
 }
 
