@@ -1,5 +1,5 @@
-const { SavedJob, Job, User } = require("../models");
-const { Op } = require("sequelize");
+const { SavedJob, Job, User, Application } = require("../models");
+const { Op, where } = require("sequelize");
 
 class SavedJobRepository {
   async saveJob(userId, jobId) {
@@ -27,11 +27,15 @@ class SavedJobRepository {
     });
   }
 
-  async getUserSavedJobs(userId, page = 1, limit = 10) {
+
+  async getUserSavedJobs(userId, page = 1, limit = 10, appliedID) {
     const offset = (page - 1) * limit;
-    
+    const whereClause = { user_id: userId };
+    if (appliedID && Array.isArray(appliedID) && appliedID.length > 0) {
+      whereClause.job_id = { [Op.notIn]: appliedID };
+    }
     return await SavedJob.findAndCountAll({
-      where: { user_id: userId },
+      where: whereClause,
       include: [
         {
           model: Job,
@@ -62,6 +66,14 @@ class SavedJobRepository {
   async checkIfJobSaved(userId, jobId) {
     const savedJob = await this.findSavedJob(userId, jobId);
     return !!savedJob;
+  }
+
+  async getAllUserAppliedJobIds(userid) {
+    const applications = await Application.findAll({
+      where: { user_id: userid },
+      attributes: ['job_id']
+    });
+    return applications.map(app => app.job_id);
   }
 }
 

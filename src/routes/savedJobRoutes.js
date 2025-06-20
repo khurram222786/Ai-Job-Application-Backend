@@ -34,21 +34,5 @@ router.get(
   savedJobController.getSavedJobs
 );
 
-// Check if a specific job is saved by the user
-router.get(
-  "/jobs/:jobId/saved",
-  protect,
-  authorize("user"),
-  validateSaveJob,
-  savedJobController.checkIfJobSaved
-);
-
-// Get saved job IDs (useful for filtering)
-router.get(
-  "/saved-job-ids",
-  protect,
-  authorize("user"),
-  savedJobController.getSavedJobIds
-);
 
 module.exports = router; 
