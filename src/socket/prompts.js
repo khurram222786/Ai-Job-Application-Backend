@@ -48,7 +48,14 @@ Important Rules:
 3. Do not include any markdown formatting
 4. Each difficulty level must have exactly 5 questions
 5. Each question must be wrapped in double quotes
-6. Do not include any trailing commas`;
+6. Do not include any trailing commas
+Example
+                Return ONLY a JSON object with this exact structure:
+                {
+                    "easy": ["question1", "question2", "question3", "question4", "question5"],
+                    "medium": ["question1", "question2", "question3", "question4", "question5"],
+                    "hard": ["question1", "question2", "question3", "question4", "question5"]
+                }`;
 
 const RESPONSE_ANALYSIS_PROMPT = (responseText) => `Analyze this candidate response and return a plain JSON object without markdown formatting or additional text:
 1. technicalDepth (1-5)
@@ -87,12 +94,9 @@ const CONCLUSION_PROMPT = (isTimeoutConclusion) => isTimeoutConclusion ?
    (like "We'll review your answers and get back to you"), 
    and wish them a good day. Keep it under 3 sentences.`;
 
-const INTRO_PROMPT = (resumeText) => resumeText ? 
-  `Start with a warm 2-sentence introduction. Example: "Hi there! I'm Alex from keepcodein. Thanks for taking the time to speak with me today." 
-  Then ask one opening question that references something from their resume. For example, if they mention a specific technology or project, ask about that. 
-  Keep the question to 1 sentence.` :
-  `Start with a warm 2-sentence introduction. Example: "Hi there! I'm Alex from keepcodein. Thanks for taking the time to speak with me today." 
-  Then ask one opening question about their technical background. Keep the question to 1 sentence.`;
+const INTRO_PROMPT = `Start with a warm 2-sentence introduction. Example: "Hi there! I'm Alex from keepcodein. Thanks for taking the time to speak with me today." 
+      Then ask one opening question that references something from their resume. For example, if they mention a specific technology or project, ask about that. 
+      Keep the question to 1 sentence.`
 
 const NEXT_QUESTION_PROMPT = (questionType, session, specificReference, lastInteresting) => `Ask a ${questionType} question for a ${session.candidateLevel} candidate.
 ${specificReference}
