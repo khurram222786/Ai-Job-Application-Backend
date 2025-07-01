@@ -6,6 +6,7 @@ const SessionManager = require("./sessionManager");
 const AIService = require("./aiService");
 const InterviewEngine = require("./interviewEngine");
 const InterviewUtils = require("./utils");
+const prompt= require('./prompts')
 
 class InterviewWebSocketService {
   constructor(server) {
@@ -120,7 +121,7 @@ class InterviewWebSocketService {
       await this.generateResumeQuestions(session);
     }
 
-    const introPrompt = session.resumeText ? require('./prompts').INTRO_PROMPT : '';
+    const introPrompt = session.resumeText ? prompt.INTRO_PROMPT : '';
     
     if (introPrompt) {
       session.messages.push({
@@ -193,6 +194,7 @@ class InterviewWebSocketService {
     }
 
     if (this.interviewEngine.shouldAskFollowUp(session)) {
+      console.log("followup check")
       const followUpQuestion = await this.aiService.generateFollowUpQuestion(
         session
       );
@@ -224,6 +226,7 @@ class InterviewWebSocketService {
       phase,
       session
     );
+    console.log("next_Question_Type=========>",nextQuestionType)
     const nextQuestion = await this.generateNextQuestion(nextQuestionType, session);
 
     session.messages.push({
@@ -244,7 +247,7 @@ class InterviewWebSocketService {
 
   async generateResumeQuestions(session) {
     try {
-      const resumePromptText = require('./prompts').RESUME_QUESTION_PROMPT(session.resumeText);
+      const resumePromptText = prompt.RESUME_QUESTION_PROMPT(session.resumeText);
       const resumePrompt = {
         role: "user",
         parts: [
@@ -301,7 +304,7 @@ class InterviewWebSocketService {
       role: "user",
       parts: [
         {
-          text: require('./prompts').RESPONSE_ANALYSIS_PROMPT(responseText),
+          text: prompt.RESPONSE_ANALYSIS_PROMPT(responseText),
         },
       ],
     };
@@ -309,7 +312,6 @@ class InterviewWebSocketService {
     try {
       const analysisText = await this.aiService.callGeminiAPI([analysisPrompt], 0.3);
 
-      // Clean the response by removing markdown formatting if present
       let cleanJson = analysisText
         .replace(/```json/g, "")
         .replace(/```/g, "")
@@ -388,12 +390,10 @@ class InterviewWebSocketService {
         await this.concludeInterview(session, true);
         return;
       }
-
       console.log(
         `User timed out — sending follow-up ${session.followupCount + 1}/2`
       );
       session.followupCount++;
-
       let followupPrompt = `The candidate didn't respond within 60 seconds (follow-up ${session.followupCount}/2). `;
 
       if (session.followupCount === 1) {
@@ -437,19 +437,12 @@ class InterviewWebSocketService {
   }
 
   async concludeInterview(session, isTimeoutConclusion = false) {
+    const conclusionText = prompt.CONCLUSION_PROMPT(isTimeoutConclusion);
     const conclusionPrompt = {
       role: "user",
       parts: [
         {
-          text: isTimeoutConclusion
-            ? `The candidate didn't respond to multiple follow-ups. 
-           Please conclude the interview professionally by thanking them 
-           for their time and mentioning that we'll be in touch if 
-           there's interest in proceeding. Keep it brief (1-2 sentences).`
-            : `Please conclude the interview professionally. 
-           Thank the candidate for their time, mention next steps 
-           (like "We'll review your answers and get back to you"), 
-           and wish them a good day. Keep it under 3 sentences.`,
+          text: conclusionText,
         },
       ],
     };

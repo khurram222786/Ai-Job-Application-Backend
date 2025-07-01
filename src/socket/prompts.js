@@ -197,5 +197,5 @@ module.exports = {
   CONCLUSION_PROMPT,
   INTRO_PROMPT,
   NEXT_QUESTION_PROMPT,
-  createResumePrompt
+  createResumePrompt,
 }; 
