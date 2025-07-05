@@ -18,12 +18,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Setup routes
-setupRoutes(app);
-
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 100 requests per windowMs
+  max: 30, // Limit
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: {
@@ -32,6 +29,9 @@ const apiLimiter = rateLimit({
   }
 });
 app.use(apiLimiter);
+
+// Setup routes
+setupRoutes(app);
 
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
