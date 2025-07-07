@@ -1,23 +1,25 @@
 {
   "development": {
-    "username": "postgres",
-    "password": "admin",
-    "database": "job_portal_dev",
-    "host": "127.0.0.1",
-    "dialect": "postgres"
-  },
-  "test": {
-    "username": "postgres",
-    "password": "admin",
-    "database": "job_portal_test",
-    "host": "127.0.0.1",
-    "dialect": "postgres"
-  },
-  "production": {
-    "username": "postgres",
-    "password": "admin",
-    "database": "job_portal_prod",
-    "host": "127.0.0.1",
-    "dialect": "postgres"
+    "username": "zahaa",
+    "password": "ZahaRehman1",
+    "database": "ai_job_app",
+    "host": "database-1.cbm48is28tkk.eu-north-1.rds.amazonaws.com",
+    "port": 5432,
+    "dialect": "postgres",
+    "dialectOptions": {
+      "ssl": {
+        "require": true,
+        "rejectUnauthorized": false
+      },
+      "keepAlive": true,
+      "connectionTimeoutMillis": 10000,
+      "idleTimeoutMillis": 10000
+    },
+    "pool": {
+      "max": 5,
+      "min": 0,
+      "acquire": 30000,
+      "idle": 10000
+    }
   }
 }

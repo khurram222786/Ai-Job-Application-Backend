@@ -1,21 +1,24 @@
 const { WebSocketServer } = require("ws");
 const fetch = require("node-fetch");
 const parseResume = require("./../validators/pdf_parser");
-const prompt = require("./prompts");
-const { callGemini } = require("../validators/geminiHook");
 const documentRepository = require("../repositories/documentRepository");
+const SessionManager = require("./sessionManager");
+const AIService = require("./aiService");
+const InterviewEngine = require("./interviewEngine");
+const InterviewUtils = require("./utils");
+const prompt= require('./prompts')
 
 class InterviewWebSocketService {
   constructor(server) {
     this.PORT = process.env.WS_PORT || 3001;
-    this.GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    this.MODEL_NAME = "gemini-1.5-flash";
-    this.API_URL = `https://generativelanguage.googleapis.com/v1/models/${this.MODEL_NAME}:generateContent?key=${this.GEMINI_API_KEY}`;
     this.MAX_QUESTIONS = 5;
-    this.sessions = new Map();
-    this.RESUME_QUESTION_RATIO = 0.3;
-    this.INTERVIEW_GUIDELINES = prompt.INTERVIEW_GUIDELINES;
     this.wss = new WebSocketServer({ server });
+    this.sessionManager = new SessionManager(this.MAX_QUESTIONS);
+    this.aiService = new AIService(
+      process.env.GEMINI_API_KEY,
+      "gemini-1.5-flash"
+    );
+    this.interviewEngine = new InterviewEngine(this.MAX_QUESTIONS);
     this.userRepository = require("../repositories/userRepository");
     this.interviewRepository = require("../repositories/interviewRepository");
     this.applicationRepository = require("../repositories/applicationRepository");
@@ -25,39 +28,7 @@ class InterviewWebSocketService {
   initialize() {
     this.wss.on("connection", (ws) => {
       console.log("New client connected");
-      const sessionId = Date.now().toString();
-
-      this.sessions.set(sessionId, {
-        messages: [
-          {
-            role: "user",
-            parts: [{ text: this.INTERVIEW_GUIDELINES }],
-          },
-        ],
-        questionCount: 0,
-        isInterviewActive: false,
-        candidateLevel: "mid",
-        timeoutHandle: null,
-        followupCount: 0,
-        ws,
-        resumeText: null,
-        conversationContext: [],
-        lastResponseAnalysis: {},
-        resumeQuestions: {
-          easy: [],
-          medium: [],
-          hard: [],
-        },
-        askedResumeQuestions: [],
-        candidateScore: {
-          technicalDepth: 0,
-          experienceScore: 0,
-          communicationScore: 0,
-          totalScore: 0,
-          responseHistory: [],
-        },
-      });
-
+      const { sessionId, session } = this.sessionManager.createSession(ws);
       this.setupMessageHandlers(ws, sessionId);
     });
   }
@@ -66,56 +37,10 @@ class InterviewWebSocketService {
     ws.on("message", async (message) => {
       try {
         const data = JSON.parse(message);
-        const session = this.sessions.get(sessionId);
+        const session = this.sessionManager.getSession(sessionId);
 
         if (data.type === "user_info") {
-          const validation = await this.validateUserSession(
-            data.userId,
-            data.interviewId
-          );
-
-          if (!validation.isValid) {
-            ws.send(
-              JSON.stringify({
-                type: "error",
-                text: validation.error,
-              })
-            );
-            ws.close();
-            return;
-          }
-
-          session.userId = data.userId;
-          session.applicationId = validation.application.id;
-          session.interviewId = data.interviewId;
-
-          console.log(
-            `Validated session for userId: ${data.userId}, interviewId: ${data.interviewId}`
-          );
-          // session.resumeText = await parseResume(session.userId);
-          const document = await documentRepository.findDocumentByUserId(
-            session.userId
-          );
-          session.resumeText = JSON.stringify(document.parsed_data, null, 2);
-
-          if (session.resumeText) {
-            session.messages.push({
-              role: "user",
-              parts: [
-                {
-                  text: `Candidate's resume content for reference:\n${session.resumeText}\n\nUse this information to personalize your questions when appropriate.`,
-                },
-              ],
-            });
-          }
-
-          ws.send(
-            JSON.stringify({
-              type: "user_info_ack",
-              status: "success",
-              message: "User session validated successfully",
-            })
-          );
+          await this.handleUserInfo(data, session);
         } else if (data.type === "start_interview") {
           await this.handleInterviewStart(session);
         } else if (data.type === "message" && session.isInterviewActive) {
@@ -134,10 +59,52 @@ class InterviewWebSocketService {
 
     ws.on("close", () => {
       console.log("Client disconnected");
-      const session = this.sessions.get(sessionId);
-      if (session?.timeoutHandle) clearTimeout(session.timeoutHandle);
-      this.sessions.delete(sessionId);
+      this.sessionManager.deleteSession(sessionId);
     });
+  }
+
+  async handleUserInfo(data, session) {
+    const validation = await this.validateUserSession(
+      data.userId,
+      data.interviewId
+    );
+
+    if (!validation.isValid) {
+      session.ws.send(
+        JSON.stringify({
+          type: "error",
+          text: validation.error,
+        })
+      );
+      session.ws.close();
+      return;
+    }
+
+    session.userId = data.userId;
+    session.applicationId = validation.application.id;
+    session.interviewId = data.interviewId;
+
+    const document = await documentRepository.findDocumentByUserId(session.userId);
+    session.resumeText = JSON.stringify(document.parsed_data, null, 2);
+
+    if (session.resumeText) {
+      session.messages.push({
+        role: "user",
+        parts: [
+          {
+            text: `Candidate's resume content for reference:\n${session.resumeText}\n\nUse this information to personalize your questions when appropriate.`,
+          },
+        ],
+      });
+    }
+
+    session.ws.send(
+      JSON.stringify({
+        type: "user_info_ack",
+        status: "success",
+        message: "User session validated successfully",
+      })
+    );
   }
 
   async handleInterviewStart(session) {
@@ -154,27 +121,124 @@ class InterviewWebSocketService {
       await this.generateResumeQuestions(session);
     }
 
-    let introPrompt = ``;
-    if (session.resumeText) {
-      introPrompt = prompt.INTRO_PROMPT;
+    const introPrompt = session.resumeText ? prompt.INTRO_PROMPT : '';
+    
+    if (introPrompt) {
+      session.messages.push({
+        role: "user",
+        parts: [{ text: introPrompt }],
+      });
+
+      const responseText = await this.aiService.callGeminiAPI(session.messages, 0.7);
+      session.messages.push({
+        role: "model",
+        parts: [{ text: responseText }],
+      });
+
+      session.ws.send(
+        JSON.stringify({
+          type: "response",
+          text: responseText,
+          isFirstQuestion: true,
+        })
+      );
     }
+
+    this.setNextQuestionTimeout(session);
+  }
+
+  async handleCandidateMessage(data, session) {
+    session.followupCount = 0;
+    if (session.timeoutHandle) clearTimeout(session.timeoutHandle);
+
+    const analysis = await this.analyzeCandidateResponse(data.text, session);
+    session.lastResponseAnalysis = analysis;
+
+    session.candidateLevel = this.interviewEngine.determineCandidateLevel(
+      analysis,
+      session
+    );
+
+    session.conversationContext.push({
+      question: session.messages[session.messages.length - 1].parts[0].text,
+      response: data.text,
+      analysis: analysis,
+    });
 
     session.messages.push({
       role: "user",
-      parts: [{ text: introPrompt }],
+      parts: [{ text: data.text }],
     });
 
-    const responseText = await this.callGeminiAPI(session.messages, 0.7);
+    if (Math.random() < 0.7) {
+      const acknowledgment = await this.aiService.generateAcknowledgment(session);
+      if (acknowledgment) {
+        session.messages.push({
+          role: "model",
+          parts: [{ text: acknowledgment }],
+        });
+
+        session.ws.send(
+          JSON.stringify({
+            type: "response",
+            text: acknowledgment,
+            isAcknowledgment: true,
+          })
+        );
+      }
+    }
+
+    if (session.questionCount >= this.MAX_QUESTIONS) {
+      await this.concludeInterview(session);
+      return;
+    }
+
+    if (this.interviewEngine.shouldAskFollowUp(session)) {
+      console.log("followup check")
+      const followUpQuestion = await this.aiService.generateFollowUpQuestion(
+        session
+      );
+      if (followUpQuestion) {
+        session.messages.push({
+          role: "model",
+          parts: [{ text: followUpQuestion }],
+        });
+
+        session.ws.send(
+          JSON.stringify({
+            type: "response",
+            text: followUpQuestion,
+            isFollowUp: true,
+          })
+        );
+
+        this.setNextQuestionTimeout(session);
+        return;
+      }
+    }
+
+    session.questionCount++;
+    const phase = InterviewUtils.getInterviewPhase(
+      session.questionCount,
+      this.MAX_QUESTIONS
+    );
+    const nextQuestionType = this.interviewEngine.selectQuestionType(
+      phase,
+      session
+    );
+    console.log("next_Question_Type=========>",nextQuestionType)
+    const nextQuestion = await this.generateNextQuestion(nextQuestionType, session);
+
     session.messages.push({
       role: "model",
-      parts: [{ text: responseText }],
+      parts: [{ text: nextQuestion }],
     });
 
     session.ws.send(
       JSON.stringify({
         type: "response",
-        text: responseText,
-        isFirstQuestion: true,
+        text: nextQuestion,
+        questionCount: session.questionCount,
       })
     );
 
@@ -193,7 +257,7 @@ class InterviewWebSocketService {
         ],
       };
 
-      const response = await this.callGeminiAPI([resumePrompt], 0.1);
+      const response = await this.aiService.callGeminiAPI([resumePrompt], 0.1);
       let cleanResponse = response.trim();
 
       if (cleanResponse.startsWith("```json")) {
@@ -235,147 +299,44 @@ class InterviewWebSocketService {
     }
   }
 
-  getResumeQuestion(session) {
-    let difficulty;
-    switch (session.candidateLevel) {
-      case "senior":
-        difficulty =
-          Math.random() < 0.6
-            ? "hard"
-            : Math.random() < 0.8
-            ? "medium"
-            : "easy";
-        break;
-      case "mid":
-        difficulty =
-          Math.random() < 0.6
-            ? "medium"
-            : Math.random() < 0.8
-            ? "easy"
-            : "hard";
-        break;
-      default: // junior
-        difficulty =
-          Math.random() < 0.6
-            ? "easy"
-            : Math.random() < 0.8
-            ? "medium"
-            : "hard";
-    }
-
-    const availableQuestions = session.resumeQuestions[difficulty].filter(
-      (q) => !session.askedResumeQuestions.includes(q)
-    );
-    if (availableQuestions.length === 0) {
-      return null;
-    }
-    const question =
-      availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
-    session.askedResumeQuestions.push(question);
-
-    return question;
-  }
-
-  async handleCandidateMessage(data, session) {
-    session.followupCount = 0;
-    if (session.timeoutHandle) clearTimeout(session.timeoutHandle);
-
-    const analysis = await this.analyzeCandidateResponse(data.text, session);
-    session.lastResponseAnalysis = analysis;
-
-    session.candidateLevel = this.determineCandidateLevel(analysis, session);
-
-    session.conversationContext.push({
-      question: session.messages[session.messages.length - 1].parts[0].text,
-      response: data.text,
-      analysis: analysis,
-    });
-
-    session.messages.push({
+  async analyzeCandidateResponse(responseText, session) {
+    const analysisPrompt = {
       role: "user",
-      parts: [{ text: data.text }],
-    });
+      parts: [
+        {
+          text: prompt.RESPONSE_ANALYSIS_PROMPT(responseText),
+        },
+      ],
+    };
 
-    // Acknowledge the response (80% chance)
-    if (Math.random() < 0.8) {
-      const acknowledgment = await this.generateAcknowledgment(session);
-      console.log("test acknowlegement--->", acknowledgment);
-      if (acknowledgment) {
-        session.messages.push({
-          role: "model",
-          parts: [{ text: acknowledgment }],
-        });
+    try {
+      const analysisText = await this.aiService.callGeminiAPI([analysisPrompt], 0.3);
 
-        session.ws.send(
-          JSON.stringify({
-            type: "response",
-            text: acknowledgment,
-            isAcknowledgment: true,
-          })
-        );
-      }
+      let cleanJson = analysisText
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
+
+      console.log("test analysis-->", cleanJson);
+
+      return JSON.parse(cleanJson);
+    } catch (error) {
+      console.error("Analysis failed:", error);
+      return {
+        technicalDepth: 0,
+        experienceIndicators: ["junior"],
+        keyPoints: [],
+        interestingAspects: [],
+        wordCount: responseText.split(" ").length,
+        sentiment: "neutral",
+        humorPotential: false,
+      };
     }
-
-    if (session.questionCount >= this.MAX_QUESTIONS) {
-      await this.concludeInterview(session);
-      return;
-    }
-
-    if (this.shouldAskFollowUp(session)) {
-      const followUpQuestion = await this.generateFollowUpQuestion(session);
-      if (followUpQuestion) {
-        session.messages.push({
-          role: "model",
-          parts: [{ text: followUpQuestion }],
-        });
-
-        session.ws.send(
-          JSON.stringify({
-            type: "response",
-            text: followUpQuestion,
-            isFollowUp: true,
-          })
-        );
-
-        this.setNextQuestionTimeout(session);
-        return;
-      }
-    }
-
-    session.questionCount++;
-    const nextQuestion = await this.generateNextQuestion(session);
-    session.messages.push({
-      role: "model",
-      parts: [{ text: nextQuestion }],
-    });
-
-    session.ws.send(
-      JSON.stringify({
-        type: "response",
-        text: nextQuestion,
-        questionCount: session.questionCount,
-      })
-    );
-
-    this.setNextQuestionTimeout(session);
   }
 
-  async generateNextQuestion(session) {
-    const phase = this.getInterviewPhase(session.questionCount);
-    const questionType = this.selectQuestionType(phase, session);
-
-    console.log("question type---->", questionType);
-    const useResumeQuestion = Math.random() < this.RESUME_QUESTION_RATIO;
-
-    if (useResumeQuestion) {
-      const resumeQuestion = this.getResumeQuestion(session);
-      if (resumeQuestion) {
-        return resumeQuestion;
-      }
-    }
-
+  async generateNextQuestion(questionType, session) {
     let specificReference = "";
-    if (this.shouldReferenceResume(session)) {
+    if (this.sessionManager.shouldReferenceResume(session)) {
       specificReference = `Here's their resume content for reference: ${session.resumeText}\n`;
     }
 
@@ -409,251 +370,16 @@ class InterviewWebSocketService {
     };
 
     console.log(
-      "<==========================next questionprompt===============================================>",
+      "<==========================Next Question Prompt===============================================>",
       prompt
     );
 
-    return await this.callGeminiAPI([prompt], this.getTemperature(phase));
-  }
-
-  async analyzeCandidateResponse(responseText, session) {
-    const analysisPrompt = {
-      role: "user",
-      parts: [
-        {
-          text: prompt.RESPONSE_ANALYSIS_PROMPT(responseText),
-        },
-      ],
-    };
-
-    try {
-      const analysisText = await this.callGeminiAPI([analysisPrompt], 0.3);
-
-      // Clean the response by removing markdown formatting if present
-      let cleanJson = analysisText
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
-
-      console.log("test analysis-->", cleanJson);
-
-      return JSON.parse(cleanJson);
-    } catch (error) {
-      console.error("Analysis failed:", error);
-      return {
-        technicalDepth: 0,
-        experienceIndicators: ["junior"],
-        keyPoints: [],
-        interestingAspects: [],
-        wordCount: responseText.split(" ").length,
-        sentiment: "neutral",
-        humorPotential: false,
-      };
-    }
-  }
-
-  determineCandidateLevel(analysis, session) {
-    const { technicalDepth, experienceIndicators, wordCount, sentiment } =
-      analysis;
-
-    const progressFactor = session.questionCount / this.MAX_QUESTIONS;
-
-    const technicalWeight = 0.45;
-    const normalizedTechnicalDepth = (technicalDepth / 5) * 5; // Normalize to 0-5 scale
-    session.candidateScore.technicalDepth =
-      session.candidateScore.technicalDepth * (1 - technicalWeight) +
-      normalizedTechnicalDepth * technicalWeight;
-
-    let experienceScore = 0;
-    if (experienceIndicators.includes("senior")) experienceScore += 4;
-    if (experienceIndicators.includes("mid")) experienceScore += 2;
-    if (experienceIndicators.includes("junior")) experienceScore += 0;
-
-    const experienceWeight = 0.3;
-    session.candidateScore.experienceScore =
-      session.candidateScore.experienceScore * (1 - experienceWeight) +
-      experienceScore * experienceWeight;
-
-    // Calculate communication score with higher range
-    const communicationScore =
-      Math.min(wordCount / 30, 1) * 3 +
-      (sentiment === "positive" ? 2 : sentiment === "neutral" ? 1 : 0);
-
-    const communicationWeight = 0.3;
-    session.candidateScore.communicationScore =
-      session.candidateScore.communicationScore * (1 - communicationWeight) +
-      communicationScore * communicationWeight;
-
-    // Calculate total score with adjusted weights
-    session.candidateScore.totalScore =
-      session.candidateScore.technicalDepth * 0.5 +
-      session.candidateScore.experienceScore * 0.3 +
-      session.candidateScore.communicationScore * 0.2;
-
-    // Store response history
-    session.candidateScore.responseHistory.push({
-      questionNumber: session.questionCount,
-      analysis,
-      scores: {
-        technicalDepth: session.candidateScore.technicalDepth,
-        experienceScore: session.candidateScore.experienceScore,
-        communicationScore: session.candidateScore.communicationScore,
-        totalScore: session.candidateScore.totalScore,
-      },
-    });
-
-    const seniorThreshold = 3.0 + 0.7 * progressFactor; // 3.0-3.7 range
-    const midThreshold = 1.5 + 0.5 * progressFactor; // 1.5-2.0 range
-
-    let newLevel = session.candidateLevel;
-
-    console.log("senior threshold---->", seniorThreshold);
-    console.log("mid threshold---->", midThreshold);
-    console.log("total score---->", session.candidateScore.totalScore);
-
-    if (session.candidateScore.totalScore >= seniorThreshold) {
-      newLevel = "senior";
-    } else if (session.candidateScore.totalScore >= midThreshold) {
-      newLevel = "mid";
-    } else {
-      newLevel = "junior";
-    }
-
-    if (newLevel !== session.candidateLevel) {
-      console.log(
-        `Candidate level changed from ${session.candidateLevel} to ${newLevel}`
-      );
-      console.log(`Current scores:`, session.candidateScore);
-    }
-
-    return newLevel;
-  }
-
-  shouldAskFollowUp(session) {
-    if (
-      session.questionCount < 2 ||
-      session.questionCount >= this.MAX_QUESTIONS - 2
-    ) {
-      return false;
-    }
-
-    const interestingAspects =
-      session.lastResponseAnalysis?.interestingAspects?.length || 0;
-    const baseProbability = 0.3;
-    const followUpProbability = baseProbability + interestingAspects * 0.15;
-
-    return Math.random() < Math.min(followUpProbability, 0.7);
-  }
-
-  async generateFollowUpQuestion(session) {
-    const { interestingAspects, keyPoints } = session.lastResponseAnalysis;
-
-    const followUpPrompt = {
-      role: "user",
-      parts: [
-        {
-          text: `Ask one follow-up question based on the candidate's last response.
-        Interesting aspects they mentioned: ${interestingAspects.join(", ")}.
-        Key points: ${keyPoints.join(", ")}.
-        Candidate level: ${session.candidateLevel}.
-        ${
-          session.lastResponseAnalysis.humorPotential
-            ? "You may include subtle professional humor if appropriate."
-            : ""
-        }
-        Keep the question concise (1 sentence) and natural.`,
-        },
-      ],
-    };
-
-    return await this.callGeminiAPI([followUpPrompt], 0.6);
-  }
-
-  async generateAcknowledgment(session) {
-    const { sentiment, keyPoints } = session.lastResponseAnalysis;
-
-    if (keyPoints.length === 0) {
-      return null;
-    }
-
-    const acknowledgmentPrompt = {
-      role: "user",
-      parts: [
-        {
-          text: `Generate a brief (1 sentence) acknowledgment of the candidate's last response. 
-        Key points they mentioned: ${keyPoints.join(", ")}.
-        Sentiment: ${sentiment}.
-        ${
-          session.lastResponseAnalysis.humorPotential
-            ? "You may include subtle professional humor if appropriate."
-            : ""
-        }
-        Make it sound natural like a human recruiter would.`,
-        },
-      ],
-    };
-
-    return await this.callGeminiAPI([acknowledgmentPrompt], 0.5);
-  }
-
-  getInterviewPhase(questionCount) {
-    if (questionCount <= 2) return "warmup";
-    if (questionCount < this.MAX_QUESTIONS - 2) return "mid";
-    return "conclusion";
-  }
-
-  selectQuestionType(phase, session) {
-    const types = {
-      warmup: ["resume-based technical", "resume-based behavioral"],
-      mid: [
-        `${session.candidateLevel}-level technical`,
-        "behavioral",
-        "problem-solving",
-        "situational",
-        "hypothetical scenario",
-      ],
-      conclusion: [
-        "career goals",
-        "professional development",
-        "final technical reflection",
-        "open-ended",
-      ],
-    };
-
-    const weights = {
-      warmup: [0.4, 0.4, 0.2],
-      mid: [0.4, 0.3, 0.15, 0.1, 0.05],
-      conclusion: [0.3, 0.3, 0.2, 0.2],
-    };
-
-    const typeIndex = this.weightedRandom(weights[phase]);
-    return types[phase][typeIndex];
-  }
-
-  weightedRandom(weights) {
-    const total = weights.reduce((a, b) => a + b);
-    const random = Math.random() * total;
-    let sum = 0;
-
-    for (let i = 0; i < weights.length; i++) {
-      sum += weights[i];
-      if (random <= sum) return i;
-    }
-
-    return weights.length - 1;
-  }
-
-  shouldReferenceResume(session) {
-    return session.resumeText && Math.random() < 0.6;
-  }
-
-  getTemperature(phase) {
-    const temps = {
-      warmup: 0.7,
-      mid: 0.6,
-      conclusion: 0.5,
-    };
-    return temps[phase];
+    return await this.aiService.callGeminiAPI(
+      [prompt],
+      InterviewUtils.getTemperature(
+        InterviewUtils.getInterviewPhase(session.questionCount, this.MAX_QUESTIONS)
+      )
+    );
   }
 
   setNextQuestionTimeout(session) {
@@ -664,12 +390,10 @@ class InterviewWebSocketService {
         await this.concludeInterview(session, true);
         return;
       }
-
       console.log(
         `User timed out — sending follow-up ${session.followupCount + 1}/2`
       );
       session.followupCount++;
-
       let followupPrompt = `The candidate didn't respond within 60 seconds (follow-up ${session.followupCount}/2). `;
 
       if (session.followupCount === 1) {
@@ -686,7 +410,7 @@ class InterviewWebSocketService {
         parts: [{ text: followupPrompt }],
       });
 
-      const responseText = await this.callGeminiAPI(session.messages, 0.5);
+      const responseText = await this.aiService.callGeminiAPI(session.messages, 0.5);
       session.messages.push({
         role: "model",
         parts: [{ text: responseText }],
@@ -713,25 +437,18 @@ class InterviewWebSocketService {
   }
 
   async concludeInterview(session, isTimeoutConclusion = false) {
+    const conclusionText = prompt.CONCLUSION_PROMPT(isTimeoutConclusion);
     const conclusionPrompt = {
       role: "user",
       parts: [
         {
-          text: isTimeoutConclusion
-            ? `The candidate didn't respond to multiple follow-ups. 
-           Please conclude the interview professionally by thanking them 
-           for their time and mentioning that we'll be in touch if 
-           there's interest in proceeding. Keep it brief (1-2 sentences).`
-            : `Please conclude the interview professionally. 
-           Thank the candidate for their time, mention next steps 
-           (like "We'll review your answers and get back to you"), 
-           and wish them a good day. Keep it under 3 sentences.`,
+          text: conclusionText,
         },
       ],
     };
 
     session.messages.push(conclusionPrompt);
-    const closingText = await this.callGeminiAPI(session.messages);
+    const closingText = await this.aiService.callGeminiAPI(session.messages);
     session.messages.push({
       role: "model",
       parts: [{ text: closingText }],
@@ -751,36 +468,6 @@ class InterviewWebSocketService {
       "completed"
     );
     setTimeout(() => session.ws.close(), 1000);
-  }
-
-  async callGeminiAPI(messages, temperature = 0.5) {
-    try {
-      const response = await fetch(this.API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: messages,
-          generationConfig: {
-            temperature: temperature,
-            maxOutputTokens: 300,
-            topP: 0.9,
-          },
-        }),
-        timeout: 30000,
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.candidates[0].content.parts[0].text;
-    } catch (error) {
-      console.error("Gemini API Error:", error);
-      throw error;
-    }
   }
 
   async validateUserSession(userId, interviewId) {
