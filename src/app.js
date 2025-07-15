@@ -5,13 +5,11 @@ const { sequelize } = require("./config/sequelize");
 const bodyParser = require("body-parser");
 const setupRoutes = require("./config/routes");
 const InterviewWebSocketService = require('./socket/server');
-const CustomError = require("./utils/CustomError"); 
 const rateLimit = require('express-rate-limit');
 
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -19,7 +17,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000, 
   max: 30, // Limit
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers

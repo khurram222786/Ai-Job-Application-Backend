@@ -10,7 +10,6 @@ const prompt= require('./prompts')
 
 class InterviewWebSocketService {
   constructor(server) {
-    this.PORT = process.env.WS_PORT || 3001;
     this.MAX_QUESTIONS = 5;
     this.wss = new WebSocketServer({ server });
     this.sessionManager = new SessionManager(this.MAX_QUESTIONS);

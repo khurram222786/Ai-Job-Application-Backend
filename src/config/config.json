@@ -12,7 +12,7 @@
         "rejectUnauthorized": false
       },
       "keepAlive": true,
-      "connectionTimeoutMillis": 10000,
+      "connectionTimeoutMillis": 30000,
       "idleTimeoutMillis": 10000
     },
     "pool": {
