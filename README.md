@@ -4,7 +4,7 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/Ai-Job-Application-Backend.git
+   git clone https://github.com/khurram222786/Ai-Job-Application-Backend.git
    cd Ai-Job-Application-Backend
    ```
 
